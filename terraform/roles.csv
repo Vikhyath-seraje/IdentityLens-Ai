@@ -1,0 +1,6 @@
+role_name,managed_policies
+DeveloperRole,arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess|arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess
+DevOpsRole,arn:aws:iam::aws:policy/AmazonEC2FullAccess|arn:aws:iam::aws:policy/AmazonS3FullAccess
+SecurityRole,arn:aws:iam::aws:policy/SecurityAudit
+AdminRole,arn:aws:iam::aws:policy/AdministratorAccess
+QuarantineRole,

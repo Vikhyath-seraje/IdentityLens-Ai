@@ -1,0 +1,7 @@
+group_name,managed_policies
+Developers,arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess|arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess
+DevOps,arn:aws:iam::aws:policy/AmazonEC2FullAccess|arn:aws:iam::aws:policy/AmazonS3FullAccess
+SecurityAdmins,arn:aws:iam::aws:policy/SecurityAudit|arn:aws:iam::aws:policy/IAMReadOnlyAccess
+PowerUsers,arn:aws:iam::aws:policy/PowerUserAccess
+Administrators,arn:aws:iam::aws:policy/AdministratorAccess
+Contractors,arn:aws:iam::aws:policy/ReadOnlyAccess

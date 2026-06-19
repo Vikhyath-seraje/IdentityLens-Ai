@@ -96,6 +96,7 @@ pg = st.navigation([
     st.Page("pages/5_Attack_Graph.py", title="Attack Graph", icon="🕸️"),
     st.Page("pages/6_AI_Remediation_Center.py", title="AI Remediation", icon="🤖"),
     st.Page("pages/7_Quarantine_Center.py", title="Quarantine Center", icon="🛡️"),
+    st.Page("pages/8_Infrastructure_Manager.py", title="Infrastructure Manager", icon="🏗️"),
 ])
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────

@@ -1,0 +1,11 @@
+username,group
+john.smith,Developers
+alice.brown,Developers
+mark.devops,DevOps
+security.analyst,SecurityAdmins
+senior.engineer,PowerUsers
+bob.admin,Administrators
+contractor1,Contractors
+contractor2,Contractors
+svc-etl,PowerUsers
+svc-monitoring,SecurityAdmins
