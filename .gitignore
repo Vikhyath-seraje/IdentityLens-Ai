@@ -1,0 +1,6 @@
+.env
+__pycache__/
+*.pyc
+.DS_Store
+identity_hackathon_dataset.zip
+scratch_schema.py
