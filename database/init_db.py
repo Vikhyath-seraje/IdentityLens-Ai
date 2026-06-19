@@ -22,7 +22,18 @@ def init_db():
         except Exception as e:
             print(f"Error loading {file_path}: {e}")
             
-    conn.close()
+    # Ensure quarantine_records table exists
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS quarantine_records (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            identity_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            pre_quarantine_state TEXT,
+            status TEXT CHECK(status IN ("quarantined","released")) NOT NULL DEFAULT "quarantined"
+        )
+    ''')
+    print("Quarantine table ensured.")
+    
     print("Database initialization complete.")
 
 if __name__ == "__main__":
