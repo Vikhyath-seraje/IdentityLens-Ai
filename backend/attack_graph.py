@@ -28,9 +28,36 @@ class AttackGraphGenerator:
                 G.add_node(row['parent_group'], type='Group', label=row['parent_group'])
                 G.add_edge(row['group'], row['parent_group'], relation='MEMBER_OF')
 
-        # Add AD Roles
+        # Get currently quarantined identities
+        quarantined_ids = set()
+        try:
+            quarantined_df = pd.read_sql_query("""
+                SELECT identity_id FROM (
+                    SELECT identity_id, status, MAX(timestamp)
+                    FROM quarantine_records
+                    GROUP BY identity_id
+                ) WHERE status = 'quarantined'
+            """, conn)
+            quarantined_ids = set(quarantined_df['identity_id'].tolist())
+        except Exception as e:
+            pass
+
+        # For quarantined identities, replace live access edges with a single
+        # Quarantine Role node so the neutralized attack path stays visible
+        # (spec: "Remove attack-path edges and replace with Quarantine Role").
+        QUARANTINE_ROLE = 'Quarantined'
+        G.add_node(QUARANTINE_ROLE, type='Role', label=QUARANTINE_ROLE,
+                   quarantined=True)
+        for qid in quarantined_ids:
+            if qid not in G:
+                continue
+            G.add_edge(qid, QUARANTINE_ROLE, relation='QUARANTINED')
+
+        # Add AD Roles (skip quarantined identities — their path is via Quarantine Role)
         ad_roles = pd.read_sql_query("SELECT identity_id, role FROM ad_accounts WHERE role IS NOT NULL", conn)
         for _, row in ad_roles.iterrows():
+            if row['identity_id'] in quarantined_ids:
+                continue
             G.add_node(row['role'], type='Role', label=row['role'])
             G.add_node('Active Directory', type='Platform', label='Active Directory')
             G.add_edge(row['identity_id'], row['role'], relation='HAS_ROLE')
@@ -39,6 +66,8 @@ class AttackGraphGenerator:
         # Add AWS Policies
         aws_roles = pd.read_sql_query("SELECT identity_id, policy FROM aws_accounts WHERE policy IS NOT NULL", conn)
         for _, row in aws_roles.iterrows():
+            if row['identity_id'] in quarantined_ids:
+                continue
             G.add_node(row['policy'], type='Role', label=row['policy'])
             G.add_node('AWS IAM', type='Platform', label='AWS IAM')
             G.add_edge(row['identity_id'], row['policy'], relation='HAS_POLICY')
@@ -47,6 +76,8 @@ class AttackGraphGenerator:
         # Add Okta Roles
         okta_roles = pd.read_sql_query("SELECT identity_id, role FROM okta_accounts WHERE role IS NOT NULL", conn)
         for _, row in okta_roles.iterrows():
+            if row['identity_id'] in quarantined_ids:
+                continue
             G.add_node(row['role'], type='Role', label=row['role'])
             G.add_node('Okta', type='Platform', label='Okta')
             G.add_edge(row['identity_id'], row['role'], relation='HAS_ROLE')
