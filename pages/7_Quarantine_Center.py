@@ -15,11 +15,7 @@ from database.init_db import reset_demo_state
 
 DB_PATH = 'database/identitylens.db'
 
-st.set_page_config(
-    page_title="Identity Quarantine Center",
-    page_icon="🛡️",
-    layout="wide",
-)
+
 
 # Custom Styling to match dashboard theme
 st.markdown("""
@@ -236,8 +232,8 @@ else:
                 st.write(f"Policy: `{aws_acc[1] if aws_acc and aws_acc[1] else '—'}`")
             with col_okta:
                 st.markdown("**Okta**")
-                st.write(f"Status: `{okta_acc[0] if okta else '—'}`")
-                st.write(f"Role: `{okta_acc[1] if okta and okta_acc[1] else '—'}`")
+                st.write(f"Status: `{okta_acc[0] if okta_acc else '—'}`")
+                st.write(f"Role: `{okta_acc[1] if okta_acc and okta_acc[1] else '—'}`")
             st.markdown(f"**Active API Tokens:** `{token_count}`")
 
             # ── Before / After risk visualization ──
