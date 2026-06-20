@@ -1,7 +1,7 @@
 identity_id,aws_user,status,last_login,policy
 EMP001,emp001,Active,2026-06-01,AdministratorAccess
-EMP002,emp002,Active,2026-06-02,PowerUser
-EMP003,emp003,Active,2026-04-20,AdministratorAccess
+EMP002,edavis,Active,2026-06-02,AdministratorAccess
+EMP003,mdormer,Active,2022-06-15,ReadOnly
 EMP004,emp004,Active,2026-02-01,AdministratorAccess
 EMP005,emp005,Active,2026-02-18,PowerUser
 EMP006,emp006,Active,2026-05-26,AdministratorAccess
@@ -199,7 +199,7 @@ EMP197,emp197,Active,2026-02-05,ReadOnly
 EMP198,emp198,Active,2026-03-07,ReadOnly
 EMP199,emp199,Active,2026-04-13,AdministratorAccess
 EMP200,emp200,Active,2026-01-04,PowerUser
-CTR001,ctr001,Active,2026-03-14,AdministratorAccess
+CTR001,ccarter,Active,2026-03-14,ReadOnly
 CTR002,ctr002,Active,2026-02-01,AdministratorAccess
 CTR003,ctr003,Active,2026-01-09,PowerUser
 CTR004,ctr004,Active,2026-02-28,AdministratorAccess

@@ -2,3 +2,6 @@ group,parent_group
 Engineering,ITAdmins
 ITAdmins,DomainAdmins
 DomainAdmins,ROOT
+svc-db-sync,DatabaseAdmins
+DatabaseAdmins,ITAdmins
+ITAdmins,GlobalAdmins

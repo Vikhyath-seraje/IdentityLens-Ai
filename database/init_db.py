@@ -10,7 +10,7 @@ DATA_DIR = 'data'
 ACCOUNT_TABLES = [
     'ad_accounts', 'aws_accounts', 'okta_accounts', 'api_tokens',
     'audit_logs', 'hr_records', 'identities', 'offboarding_records',
-    'risk_labels', 'group_memberships',
+    'risk_labels', 'group_memberships', 'identity_groups'
 ]
 
 # Columns added to quarantine_records to support the post-quarantine demo flow

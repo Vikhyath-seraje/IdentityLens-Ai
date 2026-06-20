@@ -15,6 +15,7 @@ from database.init_db import reset_demo_state
 
 DB_PATH = 'database/identitylens.db'
 
+# ── Title and Style Definitions ──────────────────────────────────────────────
 st.markdown("""
 <div style="padding:1.8rem 2.5rem 0;max-width:1440px;margin:0 auto;">
 <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;
@@ -32,9 +33,79 @@ st.markdown("""
                 letter-spacing:0.8px;text-transform:uppercase;margin-top:0.2rem;">AUTO RESPONSE</span>
 </div>
 </div>
+
+<style>
+@keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.section-title h2 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #1A1A1A;
+    margin: 1.8rem 0 0.8rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid #E60028;
+    display: inline-block;
+}
+.kpi-insight {
+    font-size: 0.72rem;
+    color: #6B6B6B;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}
+.info-card {
+    background: #FFFFFF;
+    border: 1px solid #E0E0E0;
+    border-radius: 8px;
+    padding: 1.25rem 1.4rem;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    animation: fadeSlideUp 0.35s ease both;
+    transition: all 0.2s ease-in-out;
+}
+.info-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+.info-card code {
+    background: rgba(0, 0, 0, 0.04);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: #1A1A1A;
+    font-size: 0.8rem;
+}
+.badge-active {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #10B981;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+.badge-quarantined {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    background: rgba(230, 0, 40, 0.08);
+    border: 1px solid rgba(230, 0, 40, 0.25);
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: #E60028;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+}
+</style>
 """, unsafe_allow_html=True)
 
 st.markdown('<div style="padding:0 2.5rem 2.5rem;max-width:1440px;margin:0 auto;">', unsafe_allow_html=True)
+
 # ── Data Loader ────────────────────────────────────────────────────────────
 @st.cache_data(ttl=10)
 def load_quarantine_data():
@@ -87,18 +158,16 @@ def load_quarantine_data():
     conn.close()
     return merged_df, remediation, audit_df
 
-
 merged_df, remediation, audit_df = load_quarantine_data()
 
-# ── Sidebar demo controls ──────────────────────────────────────────────────
-with st.sidebar:
+# ── System Demo Controls (Inline) ──────────────────────────────────────────
+with st.expander("System Demo Controls", expanded=False):
     st.markdown("""
-    <div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:10px;padding:1rem 1.2rem;margin-bottom:0.5rem;">
-        <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#94a3b8;margin-bottom:0.5rem;">Demo Controls</div>
+    <div style="font-size:0.85rem;color:#4A4A4A;margin-bottom:0.75rem;line-height:1.5;">
+        Reset all identity records and quarantine states to re-run the security response demo cleanly.
     </div>
     """, unsafe_allow_html=True)
-    st.caption("Reset all accounts and quarantine state to re-run the demo cleanly.")
-    if st.button("♻️ Reset Demo State", use_container_width=True):
+    if st.button("Reset Demo State", use_container_width=True):
         with st.spinner("Restoring original account data and clearing quarantine records…"):
             reset_demo_state()
             st.cache_data.clear()
@@ -117,13 +186,17 @@ privileges_removed_total= int(merged_df['privileges_removed'].sum())
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("🛑 Quarantined",        quarantined_count)
+    st.metric("Quarantined", quarantined_count)
+    st.markdown('<div class="kpi-insight">Identities currently isolated across AD, Okta, & AWS</div>', unsafe_allow_html=True)
 with col2:
-    st.metric("🔴 Critical Neutralised", critical_neutralized)
+    st.metric("Critical Neutralised", critical_neutralized)
+    st.markdown('<div class="kpi-insight">Active high-risk threats successfully mitigated</div>', unsafe_allow_html=True)
 with col3:
-    st.metric("🔑 Tokens Revoked",      tokens_revoked_total)
+    st.metric("Tokens Revoked", tokens_revoked_total)
+    st.markdown('<div class="kpi-insight">Access sessions invalidated globally</div>', unsafe_allow_html=True)
 with col4:
-    st.metric("➖ Privileges Removed",   privileges_removed_total)
+    st.metric("Privileges Removed", privileges_removed_total)
+    st.markdown('<div class="kpi-insight">Admin & privileged group roles revoked</div>', unsafe_allow_html=True)
 
 st.divider()
 
@@ -191,12 +264,12 @@ else:
         with col_details:
             st.markdown(f"""
             <div class="info-card">
-                <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:0.8rem;">IDENTITY PROFILE</div>
-                <div style="font-size:1.2rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">{user_row['name']}</div>
-                <div style="font-size:0.82rem;color:#94a3b8;">
-                    🆔 <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">{selected_id}</code>
-                    &nbsp;&nbsp;🏷️ <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px;">{user_row['type']}</code>
-                    &nbsp;&nbsp;🏢 {user_row['department']}
+                <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6B6B6B;margin-bottom:0.8rem;font-weight:700;">IDENTITY PROFILE</div>
+                <div style="font-size:1.20rem;font-weight:800;color:#1A1A1A;margin-bottom:0.4rem;">{user_row['name']}</div>
+                <div style="font-size:0.82rem;color:#4A4A4A;line-height:1.6;">
+                    <code>{selected_id}</code>
+                    &nbsp;&nbsp;<code>{user_row['type']}</code>
+                    &nbsp;&nbsp;<strong>Department:</strong> {user_row['department']}
                 </div>
             </div>
             """, unsafe_allow_html=True)
@@ -209,106 +282,124 @@ else:
             token_count = conn.execute("SELECT COUNT(*) FROM api_tokens WHERE identity_id = ?", (selected_id,)).fetchone()[0]
             conn.close()
 
-            st.markdown('<div style="font-size:0.85rem;font-weight:600;color:#e2e8f0;margin:1rem 0 0.5rem;">Platform Connection Status</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.85rem;font-weight:700;color:#1A1A1A;margin:1.2rem 0 0.6rem;">Platform Connection Status</div>', unsafe_allow_html=True)
             col_ad, col_aws, col_okta = st.columns(3)
+            
             def platform_status_badge(status_val):
                 s = str(status_val).lower() if status_val else ''
-                color = '#10b981' if s in ['active', 'enabled'] else '#ef4444'
-                label = status_val or '—'
-                return f'<span style="color:{color};font-weight:600;">{label}</span>'
+                if s in ['active', 'enabled']:
+                    return f'<span class="badge-active">{status_val}</span>'
+                elif s in ['quarantined', 'disabled', 'revoked']:
+                    return f'<span class="badge-quarantined">{status_val}</span>'
+                else:
+                    return f'<span style="color:#6B6B6B;font-weight:600;">{status_val or "—"}</span>'
 
             with col_ad:
                 st.markdown(f"""
-                <div class="info-card" style="padding:0.8rem 1rem;">
-                    <div style="font-size:0.72rem;color:#64748b;margin-bottom:0.4rem;">🪟 ACTIVE DIRECTORY</div>
-                    <div style="font-size:0.85rem;">Status: {platform_status_badge(ad_acc[0] if ad_acc else None)}</div>
-                    <div style="font-size:0.82rem;color:#94a3b8;">Role: <code>{ad_acc[1] if ad_acc and ad_acc[1] else '—'}</code></div>
+                <div class="info-card" style="padding:0.9rem 1.1rem;height:100%;">
+                    <div style="font-size:0.72rem;color:#6B6B6B;margin-bottom:0.4rem;font-weight:700;">ACTIVE DIRECTORY</div>
+                    <div style="font-size:0.85rem;margin-bottom:0.3rem;">Status: {platform_status_badge(ad_acc[0] if ad_acc else None)}</div>
+                    <div style="font-size:0.82rem;color:#4A4A4A;">Role: <code>{ad_acc[1] if ad_acc and ad_acc[1] else '—'}</code></div>
                 </div>
                 """, unsafe_allow_html=True)
             with col_aws:
                 st.markdown(f"""
-                <div class="info-card" style="padding:0.8rem 1rem;">
-                    <div style="font-size:0.72rem;color:#64748b;margin-bottom:0.4rem;">☁️ AWS IAM</div>
-                    <div style="font-size:0.85rem;">Status: {platform_status_badge(aws_acc[0] if aws_acc else None)}</div>
-                    <div style="font-size:0.82rem;color:#94a3b8;">Policy: <code>{aws_acc[1] if aws_acc and aws_acc[1] else '—'}</code></div>
+                <div class="info-card" style="padding:0.9rem 1.1rem;height:100%;">
+                    <div style="font-size:0.72rem;color:#6B6B6B;margin-bottom:0.4rem;font-weight:700;">AWS IAM</div>
+                    <div style="font-size:0.85rem;margin-bottom:0.3rem;">Status: {platform_status_badge(aws_acc[0] if aws_acc else None)}</div>
+                    <div style="font-size:0.82rem;color:#4A4A4A;">Policy: <code>{aws_acc[1] if aws_acc and aws_acc[1] else '—'}</code></div>
                 </div>
                 """, unsafe_allow_html=True)
             with col_okta:
                 st.markdown(f"""
-                <div class="info-card" style="padding:0.8rem 1rem;">
-                    <div style="font-size:0.72rem;color:#64748b;margin-bottom:0.4rem;">🔐 OKTA</div>
-                    <div style="font-size:0.85rem;">Status: {platform_status_badge(okta_acc[0] if okta_acc else None)}</div>
-                    <div style="font-size:0.82rem;color:#94a3b8;">Role: <code>{okta_acc[1] if okta_acc and okta_acc[1] else '—'}</code></div>
+                <div class="info-card" style="padding:0.9rem 1.1rem;height:100%;">
+                    <div style="font-size:0.72rem;color:#6B6B6B;margin-bottom:0.4rem;font-weight:700;">OKTA</div>
+                    <div style="font-size:0.85rem;margin-bottom:0.3rem;">Status: {platform_status_badge(okta_acc[0] if okta_acc else None)}</div>
+                    <div style="font-size:0.82rem;color:#4A4A4A;">Role: <code>{okta_acc[1] if okta_acc and okta_acc[1] else '—'}</code></div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            st.markdown(f'<div style="font-size:0.85rem;color:#94a3b8;margin:0.5rem 0;">🔑 Active API Tokens: <strong style="color:#e2e8f0;">{token_count}</strong></div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="font-size:0.85rem;color:#4A4A4A;margin:0.8rem 0;padding-left:0.25rem;">
+                Active API Tokens: <strong style="color:#1A1A1A;">{token_count}</strong>
+            </div>
+            """, unsafe_allow_html=True)
 
             # Risk before/after chart
             if is_quarantined and remed:
-                st.markdown('<div style="font-size:0.85rem;font-weight:600;color:#e2e8f0;margin:1rem 0 0.5rem;">Risk Reduction: Before → After Quarantine</div>', unsafe_allow_html=True)
+                st.markdown('<div style="font-size:0.85rem;font-weight:700;color:#1A1A1A;margin:1.2rem 0 0.5rem;">Risk Reduction: Before → After Quarantine</div>', unsafe_allow_html=True)
                 pre_score  = remed.get('pre_risk_score') or 0
                 post_score = remed.get('post_risk_score') or 0
                 pre_level  = remed.get('pre_risk_level') or '—'
                 post_level = remed.get('post_risk_level') or '—'
+                
                 fig_risk = go.Figure()
                 fig_risk.add_trace(go.Bar(
                     x=['Before Quarantine', 'After Quarantine'],
                     y=[pre_score, post_score],
-                    text=[f"{pre_score}<br>({pre_level})", f"{post_score}<br>({post_level})"],
+                    text=[f"{pre_score} ({pre_level})", f"{post_score} ({post_level})"],
                     textposition='outside',
-                    marker_color=['#ef4444', '#10b981'],
-                    width=[0.4, 0.4],
+                    marker_color=['#E60028', '#007A4C'],
+                    width=[0.35, 0.35],
+                    hovertemplate='<b>%{x}</b><br>Risk Score: %{y}<extra></extra>',
                 ))
                 fig_risk.update_layout(
-                    paper_bgcolor='rgba(255,255,255,0)', plot_bgcolor='rgba(255,255,255,0)',
-                    font_color='#1A1A1A', height=260, showlegend=False,
-                    yaxis=dict(range=[0, 120], title='Risk Score', gridcolor='rgba(0,0,0,0.07)'),
-                    xaxis=dict(gridcolor='rgba(0,0,0,0)'),
-                    margin=dict(t=20, b=20, l=10, r=10),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    font=dict(family='Inter, -apple-system, sans-serif', size=11, color='#1A1A1A'),
+                    height=240,
+                    showlegend=False,
+                    yaxis=dict(
+                        range=[0, 115],
+                        title='Risk Score',
+                        gridcolor='#E0E0E0',
+                        zeroline=True,
+                        zerolinecolor='#E0E0E0',
+                    ),
+                    xaxis=dict(
+                        gridcolor='rgba(0,0,0,0)',
+                    ),
+                    margin=dict(t=30, b=10, l=10, r=10),
                 )
-                st.plotly_chart(fig_risk, use_container_width=True)
+                st.plotly_chart(fig_risk, use_container_width=True, config={'displayModeBar': False})
 
             # Policy rules
-            st.markdown('<div style="font-size:0.85rem;font-weight:600;color:#e2e8f0;margin:0.5rem 0;">Matching Policy Rules</div>', unsafe_allow_html=True)
+            st.markdown('<div style="font-size:0.85rem;font-weight:700;color:#1A1A1A;margin:1.2rem 0 0.6rem;">Matching Policy Rules</div>', unsafe_allow_html=True)
             if policy_check['eligible']:
                 for rule in policy_check['rules']:
-                    st.error(f"🔴 Policy Violation: **{rule}**")
+                    st.error(f"Policy Violation: **{rule}**")
             else:
-                st.success("🟢 No automatic quarantine policy violations matched.")
+                st.success("No automatic quarantine policy violations matched.")
 
         with col_actions:
-            st.markdown("""
-            <div class="info-card" style="border-color:rgba(239,68,68,0.2);">
-                <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:0.8rem;">REMEDIATION CONTROLS</div>
-            """, unsafe_allow_html=True)
+            with st.container(border=True):
+                st.markdown('<div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:1px;color:#6B6B6B;margin-bottom:0.8rem;font-weight:700;">REMEDIATION CONTROLS</div>', unsafe_allow_html=True)
 
-            if is_quarantined:
-                st.warning("⚠️ **QUARANTINED** — All access paths severed.")
-                st.markdown(f"""
-                - 🔑 Tokens revoked: **{remed.get('tokens_revoked', 0)}**
-                - ➖ Admin privileges removed: **{remed.get('privileges_removed', 0)}**
-                """)
-                if st.button("🔓 Release from Quarantine", type="primary", use_container_width=True):
-                    with st.spinner("Reversing quarantine and restoring previous access state…"):
-                        res = release_identity(selected_id)
-                    st.success(res)
-                    st.cache_data.clear()
-                    st.rerun()
-            else:
-                if not policy_check['eligible']:
-                    st.info("ℹ️ No automatic rules matched. Manual quarantine available for incident response.")
+                if is_quarantined:
+                    st.warning("QUARANTINED — All access paths severed.")
+                    st.markdown(f"""
+                    **Mitigation Summary:**
+                    * Tokens revoked: **{remed.get('tokens_revoked', 0)}**
+                    * Privileges removed: **{remed.get('privileges_removed', 0)}**
+                    """)
+                    if st.button("Release from Quarantine", type="primary", use_container_width=True):
+                        with st.spinner("Reversing quarantine and restoring previous access state…"):
+                            res = release_identity(selected_id)
+                        st.success(res)
+                        st.cache_data.clear()
+                        st.rerun()
                 else:
-                    st.success(f"✅ Eligible for quarantine\n\nScore: **{policy_check['score']}** / Level: **{policy_check['level']}**")
+                    if not policy_check['eligible']:
+                        st.info("No automatic rules matched. Manual quarantine is available for active incident response.")
+                    else:
+                        st.success(f"Eligible for quarantine\n\nScore: **{policy_check['score']}** / Level: **{policy_check['level']}**")
 
-                if st.button("🛡️ Initiate Quarantine", type="primary", use_container_width=True):
-                    with st.spinner("Executing quarantine across AD, AWS IAM, and Okta…"):
-                        res = quarantine_identity(selected_id, force=not policy_check['eligible'])
-                    st.success(res)
-                    st.cache_data.clear()
-                    st.rerun()
-
-            st.markdown("</div>", unsafe_allow_html=True)
+                    if st.button("Initiate Quarantine", type="primary", use_container_width=True):
+                        with st.spinner("Executing quarantine across AD, AWS IAM, and Okta…"):
+                            res = quarantine_identity(selected_id, force=not policy_check['eligible'])
+                        st.success(res)
+                        st.cache_data.clear()
+                        st.rerun()
 
 st.divider()
 
@@ -325,3 +416,5 @@ if not audit_df.empty:
     st.dataframe(trail, use_container_width=True, height=280)
 else:
     st.info("No quarantine or release actions have been executed yet.")
+
+st.markdown('</div>', unsafe_allow_html=True)

@@ -257,6 +257,11 @@ html, body, [class*="css"], .stApp {
 .sg-stat-value.orange { color: var(--sg-warning); }
 .sg-stat-value.green { color: var(--sg-success); }
 
+/* Hide Streamlit's 'Press Enter to apply' to prevent overlap with password eye icon */
+div[data-testid="InputInstructions"] {
+    display: none !important;
+}
+
 /* ─── PAGE CONTENT ──────────────────────── */
 .sg-page {
     padding: 2rem 2.5rem 3rem;
@@ -666,6 +671,7 @@ if not st.session_state.authenticated:
             else:
                 st.error("Invalid credentials. Please try again.")
 
+
         st.markdown("""
             </div>
             <div class="sg-login-footer">
@@ -687,14 +693,17 @@ if not st.session_state.authenticated:
 
 @st.cache_data(ttl=300)
 def load_identity_summary():
+    from backend.identity_resolver import IdentityResolver
     return IdentityResolver().get_identity_summary()
 
 @st.cache_data(ttl=300)
 def load_risk_scores():
+    from backend.risk_engine import RiskEngine
     return RiskEngine().calculate_risk_scores()
 
 @st.cache_data(ttl=300)
 def load_anomalies():
+    from backend.anomaly_detection import AnomalyDetectionEngine
     return AnomalyDetectionEngine().detect_anomalies()
 
 try:
@@ -731,18 +740,19 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ── Navigation Definition (Must be defined BEFORE st.page_link) ───────────────
-p1 = st.Page("views/1_Executive_Overview.py",     title="Executive Overview",    icon="📊")
-p2 = st.Page("views/2_Identity_Explorer.py",      title="Identity Explorer",     icon="🔎")
-p3 = st.Page("views/3_Risk_Center.py",            title="Risk Center",           icon="🎯")
-p4 = st.Page("views/4_Anomaly_Detection.py",      title="Anomaly Detection",     icon="🚨")
-p5 = st.Page("views/5_Attack_Graph.py",           title="Attack Graph",          icon="🕸️")
-p6 = st.Page("views/6_AI_Remediation_Center.py",  title="AI Remediation",        icon="🤖")
-p7 = st.Page("views/7_Quarantine_Center.py",      title="Quarantine Center",     icon="🛡️")
+p1 = st.Page("views/1_Executive_Overview.py",     title="Executive Overview")
+p2 = st.Page("views/2_Identity_Explorer.py",      title="Identity Explorer")
+p3 = st.Page("views/3_Risk_Center.py",            title="Risk Center")
+p4 = st.Page("views/4_Anomaly_Detection.py",      title="Anomaly Detection")
+p5 = st.Page("views/5_Attack_Graph.py",           title="Attack Graph")
+p6 = st.Page("views/6_AI_Remediation_Center.py",  title="AI Remediation")
+p7 = st.Page("views/7_Quarantine_Center.py",      title="Quarantine Center")
+p8 = st.Page("views/8_Validation_Center.py",      title="Validation Center")
 
-pg = st.navigation([p1, p2, p3, p4, p5, p6, p7], position="hidden")
+pg = st.navigation([p1, p2, p3, p4, p5, p6, p7, p8], position="hidden")
 
 # ── Native Streamlit Navbar ───────────────────────────────────────────────────
-nav_cols = st.columns([3, 0.8, 0.8, 0.8, 0.8, 0.8, 1, 1, 2], vertical_alignment="center")
+nav_cols = st.columns([2.5, 1.1, 1, 0.8, 0.9, 0.8, 1, 1.1, 1, 1.5], vertical_alignment="center")
 
 with nav_cols[0]:
     st.markdown("""
@@ -764,8 +774,9 @@ with nav_cols[4]: st.page_link(p4, label="Threats")
 with nav_cols[5]: st.page_link(p5, label="Graph")
 with nav_cols[6]: st.page_link(p6, label="Response")
 with nav_cols[7]: st.page_link(p7, label="Quarantine")
+with nav_cols[8]: st.page_link(p8, label="Validation")
 
-with nav_cols[8]:
+with nav_cols[9]:
     st.markdown(f"""
         <div class="sg-user-chip">
             <div class="sg-user-avatar">{initials}</div>

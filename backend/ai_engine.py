@@ -1,8 +1,10 @@
 import os
 import google.generativeai as genai
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Always load .env from the project root, regardless of working directory
+load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 class AIEngine:
     def __init__(self):

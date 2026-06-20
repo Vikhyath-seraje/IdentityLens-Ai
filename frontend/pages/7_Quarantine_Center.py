@@ -11,7 +11,7 @@ DB_PATH = 'database/identitylens.db'
 
 st.set_page_config(
     page_title="Identity Quarantine Center",
-    page_icon="🛡️",
+    page_icon="",
     layout="wide",
 )
 
@@ -68,7 +68,7 @@ st.markdown("""
 
 st.markdown("""
 <div class="quarantine-header">
-    <h1>🛡️ Identity Quarantine Center</h1>
+    <h1>Identity Quarantine Center</h1>
     <p>Automated isolation & remediation engine for high-risk compromised identities</p>
 </div>
 """, unsafe_allow_html=True)
@@ -133,9 +133,9 @@ critical_count = len(merged_df[merged_df['risk_level'] == 'Critical'])
 eligible_count = sum(merged_df['identity_id'].map(lambda x: check_quarantine_rules(x)['eligible']))
 
 kpi1.metric("Total Monitored", total_identities)
-kpi2.metric("🛑 Quarantined", quarantined_count)
-kpi3.metric("🔴 Critical Risk", critical_count)
-kpi4.metric("⚠️ Quarantine Eligible", eligible_count)
+kpi2.metric("Quarantined", quarantined_count)
+kpi3.metric("Critical Risk", critical_count)
+kpi4.metric("Quarantine Eligible", eligible_count)
 
 st.divider()
 
@@ -229,9 +229,9 @@ if selected_id:
         st.markdown("#### Matching Policy Evaluation Rules")
         if policy_check['eligible']:
             for rule in policy_check['rules']:
-                st.error(f"🔴 Policy Violation Match: **{rule}**")
+                st.error(f"Policy Violation Match: **{rule}**")
         else:
-            st.success("🟢 No Quarantine Policy Violations Matched")
+            st.success("No Quarantine Policy Violations Matched")
 
     with col_actions:
         st.markdown("### Remediation Controls")
@@ -239,7 +239,7 @@ if selected_id:
         is_quarantined = user_row['status'] == 'quarantined'
         
         if is_quarantined:
-            st.warning("⚠️ This identity is currently QUARANTINED. All access paths have been severed.")
+            st.warning("This identity is currently QUARANTINED. All access paths have been severed.")
             
             # Workflow Checklist when Quarantined
             st.markdown("#### Quarantine Execution Status")
@@ -258,7 +258,7 @@ if selected_id:
                     st.rerun()
         else:
             if not policy_check['eligible']:
-                st.info("ℹ️ This identity does not trigger any of the automatic quarantine rules. However, you can force quarantine if manual incident response protocols dictate.")
+                st.info("This identity does not trigger any of the automatic quarantine rules. However, you can force quarantine if manual incident response protocols dictate.")
             
             # Workflow Checklist when Active
             st.markdown("#### Action Checklist")

@@ -32,17 +32,17 @@ class MLModel:
         # 2. Number of Privileges
         priv_df = self.priv_analyzer.analyze_all_identities()
         identities_df = identities_df.merge(priv_df[['identity_id', 'privilege_count']], on='identity_id', how='left')
-        identities_df['privilege_count'].fillna(0, inplace=True)
+        identities_df['privilege_count'] = identities_df['privilege_count'].fillna(0).astype(int)
         
         # 3. Token Age
         token_df = pd.read_sql_query("SELECT identity_id, MAX(age_days) as max_token_age FROM api_tokens GROUP BY identity_id", conn)
         identities_df = identities_df.merge(token_df, on='identity_id', how='left')
-        identities_df['max_token_age'].fillna(0, inplace=True)
+        identities_df['max_token_age'] = identities_df['max_token_age'].fillna(0).astype(int)
         
         # 4. Failed Logins (from audit_logs)
         audit_df = pd.read_sql_query("SELECT identity_id, COUNT(*) as failed_logins FROM audit_logs WHERE event LIKE '%Failed%' GROUP BY identity_id", conn)
         identities_df = identities_df.merge(audit_df, on='identity_id', how='left')
-        identities_df['failed_logins'].fillna(0, inplace=True)
+        identities_df['failed_logins'] = identities_df['failed_logins'].fillna(0).astype(int)
         
         # 5. Role Changes (simplified: we'll use HR records 'last_role_change' to see if it changed recently, but dataset might not have count. Let's just create a dummy feature or use 0)
         # 6. Dormancy Days: max days since last login across platforms
