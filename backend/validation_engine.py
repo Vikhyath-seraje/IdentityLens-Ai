@@ -11,11 +11,35 @@ class ValidationEngine:
         self.resolver = IdentityResolver(db_path)
         self.anomaly_engine = AnomalyDetectionEngine(db_path)
         self.risk_engine = RiskEngine(db_path)
+        self._ensure_schema()
+
+    def _ensure_schema(self):
+        """Ensures the database schema has all required columns that might be missing on deployed versions with persistent stale DB files."""
+        conn = sqlite3.connect(self.db_path)
+        c = conn.cursor()
+        
+        # Check if expires_at exists in ad_accounts
+        c.execute("PRAGMA table_info(ad_accounts)")
+        columns = [info[1] for info in c.fetchall()]
+        if 'expires_at' not in columns:
+            try:
+                c.execute("ALTER TABLE ad_accounts ADD COLUMN expires_at TEXT")
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass
+                
+        # Ensure identity_groups exists
+        try:
+            c.execute("CREATE TABLE IF NOT EXISTS identity_groups (identity_id TEXT, group_name TEXT)")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+                
+        conn.close()
 
     def inject_scenarios(self):
         """Injects test records directly into the SQLite database."""
         conn = sqlite3.connect(self.db_path, timeout=10)
-        conn.execute("PRAGMA journal_mode=WAL")
         c = conn.cursor()
 
         # Clear previous test data
