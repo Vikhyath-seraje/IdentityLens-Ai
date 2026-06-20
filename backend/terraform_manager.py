@@ -9,9 +9,22 @@ TERRAFORM_DIR = 'terraform'
 
 class TerraformManager:
     def __init__(self):
-        self.tf_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), TERRAFORM_DIR)
+        self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.tf_dir = os.path.join(self.base_dir, TERRAFORM_DIR)
+        self.tf_exe = os.path.join(self.base_dir, "terraform_bin", "terraform.exe")
 
     def _run_cmd(self, cmd):
+        env = os.environ.copy()
+        cred_path = os.path.join(self.base_dir, "aws_credentials.ini")
+        if os.path.exists(cred_path):
+            import configparser
+            config = configparser.ConfigParser()
+            config.read(cred_path)
+            if 'default' in config:
+                env['AWS_ACCESS_KEY_ID'] = config['default'].get('aws_access_key_id', '')
+                env['AWS_SECRET_ACCESS_KEY'] = config['default'].get('aws_secret_access_key', '')
+                env['AWS_DEFAULT_REGION'] = config['default'].get('region', 'ap-south-1')
+
         try:
             result = subprocess.run(
                 cmd,
@@ -19,7 +32,8 @@ class TerraformManager:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
-                check=True
+                check=True,
+                env=env
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
@@ -27,22 +41,22 @@ class TerraformManager:
 
     def init_environment(self):
         """Run terraform init."""
-        return self._run_cmd(["terraform", "init"])
+        return self._run_cmd([self.tf_exe, "init"])
 
     def deploy_environment(self):
         """Run terraform apply."""
         self.init_environment()
-        return self._run_cmd(["terraform", "apply", "-auto-approve"])
+        return self._run_cmd([self.tf_exe, "apply", "-auto-approve"])
 
     def destroy_environment(self):
         """Run terraform destroy."""
         self.init_environment()
-        return self._run_cmd(["terraform", "destroy", "-auto-approve"])
+        return self._run_cmd([self.tf_exe, "destroy", "-auto-approve"])
 
     def get_terraform_output(self):
         """Run terraform output -json and parse it."""
         try:
-            out = self._run_cmd(["terraform", "output", "-json"])
+            out = self._run_cmd([self.tf_exe, "output", "-json"])
             return json.loads(out)
         except Exception:
             return None
