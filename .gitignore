@@ -10,3 +10,6 @@ scratch_schema.py
 terraform_bin/
 terraform/.terraform/
 *.exe
+
+*.tfstate
+*.tfstate.backup
