@@ -6,3 +6,7 @@ identity_hackathon_dataset.zip
 scratch_schema.py
 *.log
 
+
+terraform_bin/
+terraform/.terraform/
+*.exe
