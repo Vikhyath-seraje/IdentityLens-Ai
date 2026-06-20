@@ -4,6 +4,7 @@ import streamlit as st
 import networkx as nx
 import plotly.graph_objects as go
 from backend.attack_graph import AttackGraphGenerator
+from backend.risk_engine import RiskEngine
 
 st.markdown("""
 <div style="padding:1.8rem 2.5rem 0;max-width:1440px;margin:0 auto;">
@@ -47,23 +48,39 @@ st.divider()
 # ── Controls ───────────────────────────────────────────────────────────────
 st.markdown('<div class="section-title"><h2>Graph Controls</h2></div>', unsafe_allow_html=True)
 
+@st.cache_data
+def get_high_risk_ids():
+    risk_df = RiskEngine().calculate_risk_scores()
+    return risk_df[risk_df['risk_level'].isin(['Critical', 'High'])]['identity_id'].tolist()
+
 col_sel, col_layout = st.columns([3, 1])
 with col_sel:
     selected_identity = st.selectbox(
         "Trace attack path for identity:",
-        ['All (Full Graph)'] + identity_nodes,
+        ['High/Critical Risk Only', 'All (Full Graph)'] + identity_nodes,
         help="Select a specific identity to see their complete access path to platforms and resources."
     )
 with col_layout:
     layout_algo = st.selectbox("Layout", ["spring", "kamada_kawai", "circular"], help="Graph layout algorithm")
 
-if selected_identity != 'All (Full Graph)':
+if selected_identity == 'High/Critical Risk Only':
+    high_risk_ids = get_high_risk_ids()
+    nodes_to_keep = set(high_risk_ids)
+    for qid in high_risk_ids:
+        if qid in G:
+            try:
+                nodes_to_keep.update(nx.descendants(G, qid))
+            except Exception:
+                pass
+    subG = G.subgraph(nodes_to_keep)
+elif selected_identity != 'All (Full Graph)':
     nodes_to_keep = set([selected_identity])
-    try:
-        descendants = nx.descendants(G, selected_identity)
-        nodes_to_keep.update(descendants)
-    except Exception:
-        pass
+    if selected_identity in G:
+        try:
+            descendants = nx.descendants(G, selected_identity)
+            nodes_to_keep.update(descendants)
+        except Exception:
+            pass
     subG = G.subgraph(nodes_to_keep)
 else:
     subG = G
@@ -124,7 +141,9 @@ else:
 
     node_trace = go.Scatter(
         x=node_x, y=node_y,
-        mode='markers',
+        mode='markers+text' if subG.number_of_nodes() < 40 else 'markers',
+        text=[nt.split("<br>")[1] for nt in node_text] if subG.number_of_nodes() < 40 else [],
+        textposition="top center",
         hoverinfo='text',
         hovertext=node_text,
         marker=dict(
@@ -132,7 +151,8 @@ else:
             size=node_size,
             line=dict(width=1.5, color='rgba(0,0,0,0.4)'),
             opacity=0.9,
-        )
+        ),
+        textfont=dict(size=10, color="#1A1A1A" if subG.number_of_nodes() < 40 else "rgba(0,0,0,0)")
     )
 
     fig = go.Figure(
