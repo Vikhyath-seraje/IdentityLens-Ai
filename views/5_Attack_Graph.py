@@ -118,6 +118,25 @@ def get_high_risk_ids():
     risk_df = RiskEngine().calculate_risk_scores()
     return risk_df[risk_df['risk_level'].isin(['Critical', 'High'])]['identity_id'].tolist()
 
+@st.cache_data(ttl=300)
+def load_quarantine_impact():
+    """Top-10 quarantined identities with before/after risk — cached so the
+    Before/After comparison section does not hit the DB on every rerun."""
+    import sqlite3
+    import pandas as pd
+    try:
+        conn = sqlite3.connect('database/identitylens.db')
+        qrecs = pd.read_sql_query("""
+            SELECT identity_id, pre_risk_score, post_risk_score, pre_risk_level, post_risk_level,
+                   tokens_revoked, privileges_removed
+            FROM quarantine_records WHERE status='quarantined'
+            ORDER BY pre_risk_score DESC LIMIT 10
+        """, conn)
+        conn.close()
+    except Exception:
+        qrecs = pd.DataFrame()
+    return qrecs
+
 G            = load_graph()
 high_risk_ids = get_high_risk_ids()
 identity_nodes = [n for n, attr in G.nodes(data=True) if attr.get('type') == 'Identity']
@@ -423,18 +442,7 @@ else:
 # ── Before vs After Quarantine Comparison ─────────────────────────────────────
 st.markdown('<div class="graph-section-hdr"><h2>Before vs After Quarantine — Impact Visualization</h2></div>', unsafe_allow_html=True)
 
-try:
-    import sqlite3, pandas as pd
-    conn = sqlite3.connect('database/identitylens.db')
-    qrecs = pd.read_sql_query("""
-        SELECT identity_id, pre_risk_score, post_risk_score, pre_risk_level, post_risk_level,
-               tokens_revoked, privileges_removed
-        FROM quarantine_records WHERE status='quarantined'
-        ORDER BY pre_risk_score DESC LIMIT 10
-    """, conn)
-    conn.close()
-except Exception:
-    qrecs = pd.DataFrame()
+qrecs = load_quarantine_impact()
 
 if qrecs.empty:
     st.markdown("""

@@ -108,6 +108,7 @@ st.markdown("""
 def load_rule_anomalies():
     return AnomalyDetectionEngine().detect_anomalies()
 
+@st.cache_data(ttl=300)
 def load_ml_anomalies():
     model = MLModel()
     results = model.train_and_predict()

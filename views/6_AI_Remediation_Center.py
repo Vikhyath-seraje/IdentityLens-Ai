@@ -151,7 +151,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+@st.cache_resource
 def get_ai_engine():
+    """AIEngine configures the Gemini client and holds a model handle, so it
+    is a reusable resource rather than per-call data — cache it across reruns."""
     return AIEngine()
 
 @st.cache_data(ttl=300)

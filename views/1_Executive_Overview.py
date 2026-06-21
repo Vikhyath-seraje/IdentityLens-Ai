@@ -173,6 +173,37 @@ def load_platform_stats():
     conn.close()
     return aws, ad, okta, tokens
 
+@st.cache_data(ttl=300)
+def load_quarantined_count():
+    import sqlite3
+    try:
+        conn = sqlite3.connect('database/identitylens.db')
+        row = conn.execute(
+            "SELECT COUNT(*) FROM quarantine_records WHERE status='quarantined'"
+        ).fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except Exception:
+        return 0
+
+@st.cache_data(ttl=300)
+def load_platform_detail():
+    """Full platform rows (status + role/policy) and token count for the
+    Platform Overview cards. Cached so a rerun does not re-query the DB."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect('database/identitylens.db')
+        ad   = pd.read_sql_query("SELECT status, role   FROM ad_accounts",   conn)
+        aws  = pd.read_sql_query("SELECT status, policy FROM aws_accounts",  conn)
+        okta = pd.read_sql_query("SELECT status, role   FROM okta_accounts", conn)
+        tok  = pd.read_sql_query("SELECT COUNT(*) as c FROM api_tokens", conn).iloc[0]['c']
+        conn.close()
+    except Exception as e:
+        _log.exception("load_platform_detail failed: %s", e)
+        ad = aws = okta = pd.DataFrame()
+        tok = 0
+    return ad, aws, okta, tok
+
 summary = load_summary_data()
 risk_df = load_risk_data()
 aws_df, ad_df, okta_df, active_tokens = load_platform_stats()
@@ -204,12 +235,7 @@ except Exception as e:
     avg_risk = 0.0
 
 try:
-    quarantined_count = 0
-    import sqlite3
-    conn = sqlite3.connect('database/identitylens.db')
-    q = conn.execute("SELECT COUNT(*) FROM quarantine_records WHERE status='quarantined'").fetchone()
-    if q: quarantined_count = q[0]
-    conn.close()
+    quarantined_count = load_quarantined_count()
 except Exception:
     quarantined_count = 0
 
@@ -245,26 +271,25 @@ okta_count = len(okta_df) if not okta_df.empty else 0
 
 from backend.anomaly_detection import AnomalyDetectionEngine
 @st.cache_data(ttl=300)
-def get_anomaly_count():
+def load_anomalies():
+    """Single cached source for the rule-based anomaly DataFrame.
+
+    Previously the page invoked AnomalyDetectionEngine().detect_anomalies()
+    twice (once for the total count, once for the ITDR breakdown). The engine
+    is the most expensive call on this page, so we run it once and derive
+    every downstream count from the cached result.
+    """
     try:
-        return len(AnomalyDetectionEngine().detect_anomalies())
-    except:
-        return 0
+        return AnomalyDetectionEngine().detect_anomalies()
+    except Exception:
+        return pd.DataFrame()
 
-anomaly_count = get_anomaly_count()
-
-# ITDR-specific counts
-@st.cache_data(ttl=300)
-def get_itdr_counts():
-    try:
-        anoms = AnomalyDetectionEngine().detect_anomalies()
-        sa_compromise = len(anoms[anoms['anomaly_type'] == 'SERVICE_ACCOUNT_COMPROMISE'])
-        unauth_esc = len(anoms[anoms['anomaly_type'] == 'UNAUTHORIZED_PRIVILEGE_ESCALATION'])
-        return sa_compromise, unauth_esc
-    except:
-        return 0, 0
-
-sa_compromise_count, unauth_esc_count = get_itdr_counts()
+anomalies_df = load_anomalies()
+anomaly_count = len(anomalies_df)
+sa_compromise_count = _safe_col_count(
+    anomalies_df, 'anomaly_type', 'SERVICE_ACCOUNT_COMPROMISE')
+unauth_esc_count = _safe_col_count(
+    anomalies_df, 'anomaly_type', 'UNAUTHORIZED_PRIVILEGE_ESCALATION')
 
 st.markdown(f"""
 <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
@@ -587,13 +612,7 @@ def admin_count(df, role_col=None, policy_col=None):
     return 0
 
 try:
-    import sqlite3
-    conn = sqlite3.connect('database/identitylens.db')
-    ad_full   = pd.read_sql_query("SELECT status, role   FROM ad_accounts",   conn)
-    aws_full  = pd.read_sql_query("SELECT status, policy FROM aws_accounts",  conn)
-    okta_full = pd.read_sql_query("SELECT status, role   FROM okta_accounts", conn)
-    tok_count = pd.read_sql_query("SELECT COUNT(*) as c FROM api_tokens", conn).iloc[0]['c']
-    conn.close()
+    ad_full, aws_full, okta_full, tok_count = load_platform_detail()
 except Exception as e:
     ad_full = aws_full = okta_full = pd.DataFrame()
     tok_count = active_tokens
