@@ -13,6 +13,7 @@ st.set_page_config(
     page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="collapsed",
+    menu_items={"About": None},
 )
 
 # ── Dark SOC Master CSS ────────────────────────────────────────────────────────
@@ -68,15 +69,23 @@ html, body, [class*="css"], .stApp {
 #MainMenu, footer, header,
 [data-testid="stToolbar"],
 [data-testid="collapsedControl"],
-[data-testid="stSidebarCollapseButton"] {
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stSidebar"],
+[data-testid="stSidebarCollapsedControl"] {
     visibility: hidden !important;
     height: 0 !important;
     display: none !important;
     width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
 }
 
 /* ─── Layout ────────────────────────── */
 .stApp { background: var(--bg-primary) !important; }
+section[data-testid="stSidebar"] {
+    display: none !important;
+}
 .main .block-container {
     padding: 0 !important;
     max-width: 100% !important;
@@ -1158,16 +1167,76 @@ st.markdown(f"""
 # Run the page content
 pg.run()
 
-# Sign out in sidebar
-with st.sidebar:
-    st.markdown(f"""
-    <div style="padding:1rem;border-bottom:1px solid var(--border);margin-bottom:1rem;">
-        <div style="font-size:0.65rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:0.4rem;">Signed in as</div>
-        <div style="font-weight:700;color:var(--text-primary);font-size:0.9rem;">{user['name']}</div>
-        <div style="font-size:0.75rem;color:var(--text-muted);">{user['role']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("🚪 Sign Out", use_container_width=True, key="signout"):
-        st.session_state.authenticated = False
-        st.session_state.user = None
-        st.rerun()
+# Sign out button in bottom-right corner (main page, no sidebar)
+st.markdown("""
+<style>
+[data-testid="stSidebar"] {
+    display: none !important;
+    width: 0 !important;
+    visibility: hidden !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    overflow: hidden !important;
+}
+[data-testid="stSidebarCollapsedControl"] {
+    display: none !important;
+    visibility: hidden !important;
+}
+.il-signout-float {
+    position: fixed;
+    bottom: 1rem;
+    right: 1.5rem;
+    z-index: 9999;
+}
+.il-signout-float button {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-strong) !important;
+    color: var(--text-muted) !important;
+    border-radius: var(--radius) !important;
+    font-size: 0.75rem !important;
+    font-weight: 500 !important;
+    font-family: var(--font) !important;
+    padding: 0.35rem 0.85rem !important;
+    transition: all 0.2s !important;
+    cursor: pointer;
+}
+.il-signout-float button:hover {
+    border-color: var(--critical) !important;
+    color: var(--critical) !important;
+    box-shadow: 0 0 12px var(--critical-glow) !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown('<div class="il-signout-float">', unsafe_allow_html=True)
+if st.button("🚪 Sign Out", key="signout"):
+    st.session_state.authenticated = False
+    st.session_state.user = None
+    st.rerun()
+st.markdown('</div>', unsafe_allow_html=True)
+
+# JS to remove any "undefined" text nodes that CSS might miss (surgical, charts safe)
+st.markdown("""
+<script>
+const removeUndefined = () => {
+    // Only touch small leaf elements whose ENTIRE text is literally "undefined"
+    // Never touch elements containing iframes/canvas (the actual charts)
+    const candidates = document.querySelectorAll('span, div, p, figcaption, label');
+    candidates.forEach(el => {
+        // skip if it contains a chart iframe or canvas
+        if (el.querySelector('iframe, canvas, svg')) return;
+        // skip if it has element children (only handle pure-text leaves)
+        if ([...el.childNodes].some(n => n.nodeType === 1)) return;
+        const txt = (el.textContent || '').trim();
+        if (txt === 'undefined' || txt === 'Undefined' || txt === 'UNDEFINED') {
+            el.remove();
+        }
+    });
+};
+const observer = new MutationObserver(() => { try { removeUndefined(); } catch(e){} });
+observer.observe(document.body, { childList: true, subtree: true });
+setTimeout(removeUndefined, 500);
+setTimeout(removeUndefined, 1500);
+setTimeout(removeUndefined, 3000);
+</script>
+""", unsafe_allow_html=True)
