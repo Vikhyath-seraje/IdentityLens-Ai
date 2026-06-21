@@ -7,6 +7,27 @@ from backend.identity_resolver import IdentityResolver
 from backend.risk_engine import RiskEngine
 from backend.anomaly_detection import AnomalyDetectionEngine
 
+# ── Patch st.plotly_chart to strip stray "undefined" titles ────────────────────
+# Plotly 6.x + Streamlit 1.58 can render an "undefined" label in the chart's
+# title area. We (1) force theme=None to disable Streamlit's plotly theming
+# layer (which injects the stray label) and (2) clear any figure title that
+# resolved to None/undefined before rendering.
+_original_plotly_chart = st.plotly_chart
+
+def _safe_plotly_chart(figure_or_data, *args, **kwargs):
+    try:
+        fig = figure_or_data
+        if hasattr(fig, "layout") and hasattr(fig.layout, "title"):
+            if getattr(fig.layout.title, "text", None) is None:
+                fig.update_layout(title=None)
+    except Exception:
+        pass
+    # Disable Streamlit's plotly theme injection unless caller set it explicitly
+    kwargs.setdefault("theme", None)
+    return _original_plotly_chart(figure_or_data, *args, **kwargs)
+
+st.plotly_chart = _safe_plotly_chart
+
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="IdentityLens AI — Enterprise Security Platform",
