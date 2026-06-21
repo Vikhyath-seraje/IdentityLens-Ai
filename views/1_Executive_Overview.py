@@ -351,7 +351,7 @@ with col_c1:
     fig_types.update_traces(textinfo='percent', textfont=dict(size=11, color='white'),
         hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Share: %{percent}<extra></extra>',
         marker=dict(line=dict(color=DARK_BG, width=2)))
-    st.plotly_chart(fig_types, use_container_width=True)
+    st.plotly_chart(fig_types, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_c2:
@@ -371,7 +371,7 @@ with col_c2:
         textfont=dict(color='#F1F5F9', size=13, weight=700),
         marker_line_color='rgba(0,0,0,0)', marker_opacity=0.9,
         hovertemplate='<b>%{x}</b><br>%{y} identities<extra></extra>')
-    st.plotly_chart(fig_risk, use_container_width=True)
+    st.plotly_chart(fig_risk, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Risk Heatmap ───────────────────────────────────────────────────────────────
@@ -407,7 +407,7 @@ if 'department' in risk_df.columns and risk_df['department'].notna().any():
         margin=dict(t=10, b=10, l=10, r=60), height=320,
         xaxis=dict(tickfont=dict(size=12, color=TEXT_COLOR), side='top'),
         yaxis=dict(tickfont=dict(size=11, color=TEXT_COLOR)))
-    st.plotly_chart(fig_heat, use_container_width=True)
+    st.plotly_chart(fig_heat, width="stretch")
 else:
     st.info("Department data not available for heatmap.")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -450,7 +450,7 @@ with col_t1:
                    tickformat='%d %b'),
         yaxis=dict(gridcolor=GRID_COLOR, tickfont=dict(size=10, color=TEXT_COLOR)),
         margin=dict(t=30, b=20, l=10, r=10), height=280)
-    st.plotly_chart(fig_trend, use_container_width=True)
+    st.plotly_chart(fig_trend, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_t2:
@@ -480,7 +480,7 @@ with col_t2:
         yaxis=dict(gridcolor=GRID_COLOR, tickfont=dict(size=11, color=TEXT_COLOR),
                    title='Identity Count', range=[0, max(counts)*1.25 if counts else 10]),
         margin=dict(t=20, b=20, l=10, r=10), height=280, bargap=0.35)
-    st.plotly_chart(fig_plat, use_container_width=True)
+    st.plotly_chart(fig_plat, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Overall Risk Gauge ─────────────────────────────────────────────────────────
@@ -518,7 +518,7 @@ with col_g2:
     ))
     fig_gauge.update_layout(paper_bgcolor=DARK_BG, font=dict(family=FONT_FAM),
         height=340, margin=dict(t=120, b=20, l=40, r=40))
-    st.plotly_chart(fig_gauge, use_container_width=True)
+    st.plotly_chart(fig_gauge, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Platform Overview Cards ────────────────────────────────────────────────────
@@ -662,7 +662,7 @@ if 'department' in risk_df.columns and risk_df['department'].notna().any():
         insidetextorientation='radial',
         textfont=dict(color='white', size=11)
     )
-    st.plotly_chart(fig_sun, use_container_width=True)
+    st.plotly_chart(fig_sun, width="stretch")
 else:
     # Fallback bar chart
     fallback_df = risk_df.groupby('risk_level').size().reset_index(name='count')
@@ -670,7 +670,7 @@ else:
                     color_discrete_map=COLOR_MAP, text='count')
     fig_fb.update_layout(**DARK_LAYOUT, showlegend=False, height=350,
         margin=dict(t=10, b=20, l=10, r=10))
-    st.plotly_chart(fig_fb, use_container_width=True)
+    st.plotly_chart(fig_fb, width="stretch")
 
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)

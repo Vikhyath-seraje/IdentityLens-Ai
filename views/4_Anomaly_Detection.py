@@ -190,7 +190,7 @@ with tab1:
                 margin=dict(t=10, b=10, l=10, r=50),
                 height=280, showlegend=False,
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
             st.markdown('</div>', unsafe_allow_html=True)
 
         with col_controls:
@@ -222,7 +222,7 @@ with tab1:
                 hovertemplate='<b>%{label}</b>: %{value}<extra></extra>',
                 marker=dict(line=dict(color=DARK_BG, width=2))
             )
-            st.plotly_chart(fig_mini, use_container_width=True)
+            st.plotly_chart(fig_mini, width="stretch")
 
         st.markdown('<div class="section-hdr"><h2>Anomaly Records</h2></div>', unsafe_allow_html=True)
         # Add MITRE ATT&CK info to the display
@@ -232,7 +232,7 @@ with tab1:
         )
         st.dataframe(
             display_anomalies,
-            use_container_width=True, height=320,
+            width="stretch", height=320,
             column_config={
                 'identity_id':  st.column_config.TextColumn('Identity ID',  width='small'),
                 'anomaly_type': st.column_config.TextColumn('Anomaly Type', width='medium'),
@@ -292,7 +292,7 @@ with tab2:
         max_priv = int(ml_anomalies['privilege_count'].max()) if 'privilege_count' in ml_anomalies.columns and len(ml_anomalies) else 1
         st.dataframe(
             ml_anomalies[display_cols],
-            use_container_width=True, height=300,
+            width="stretch", height=300,
             column_config={
                 'identity_id':               st.column_config.TextColumn('Identity ID',    width='medium'),
                 'num_platforms':             st.column_config.NumberColumn('Platforms',     width='small'),
@@ -341,7 +341,7 @@ with tab2:
                 marker_line=dict(width=1.5, color=DARK_BG),
                 hovertemplate='<b>%{customdata[0]}</b><br>Privileges: <b>%{x}</b><br>Failed Logins: <b>%{y}</b><br>Isolation Score: <b>%{marker.color:.4f}</b><extra></extra>',
             )
-            st.plotly_chart(fig_scatter, use_container_width=True)
+            st.plotly_chart(fig_scatter, width="stretch")
             st.markdown('</div>', unsafe_allow_html=True)
 
         # Isolation score distribution
@@ -363,7 +363,7 @@ with tab2:
                 marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5,
                 hovertemplate='Score range: <b>%{x}</b><br>Count: <b>%{y}</b><extra></extra>',
             )
-            st.plotly_chart(fig_iso, use_container_width=True)
+            st.plotly_chart(fig_iso, width="stretch")
             st.markdown('</div>', unsafe_allow_html=True)
     else:
         st.success("The ML model detected no anomalies in the current dataset — all identity behaviour looks within normal bounds.")

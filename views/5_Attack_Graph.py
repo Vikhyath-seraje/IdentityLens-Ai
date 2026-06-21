@@ -348,7 +348,7 @@ else:
     )
 
     st.markdown('<div class="graph-card">', unsafe_allow_html=True)
-    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': True, 'scrollZoom': True})
+    st.plotly_chart(fig, width="stretch", config={'displayModeBar': True, 'scrollZoom': True})
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ── Legend ────────────────────────────────────────────────────────────────
@@ -471,7 +471,7 @@ else:
                        tickfont=dict(size=10,color=TEXT_COL), title='Risk Score'),
             yaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(size=10,color='#F1F5F9'), autorange='reversed'),
             margin=dict(t=10, b=10, l=5, r=50), height=300, showlegend=False)
-        st.plotly_chart(fig_before, use_container_width=True)
+        st.plotly_chart(fig_before, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_after:
@@ -498,7 +498,7 @@ else:
                        tickfont=dict(size=10,color=TEXT_COL), title='Risk Score'),
             yaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(size=10,color='#F1F5F9'), autorange='reversed'),
             margin=dict(t=10, b=10, l=5, r=50), height=300, showlegend=False)
-        st.plotly_chart(fig_after, use_container_width=True)
+        st.plotly_chart(fig_after, width="stretch")
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Summary metrics

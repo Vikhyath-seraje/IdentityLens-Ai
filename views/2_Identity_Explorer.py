@@ -176,7 +176,7 @@ max_priv = int(explorer_df['privilege_count'].fillna(0).max()) or 1
 st.dataframe(
     filtered_df[['identity_id', 'name', 'type', 'department', 'ad_user', 'aws_user', 'okta_login', 'privilege_count']]
         .sort_values('privilege_count', ascending=False),
-    use_container_width=True, height=300,
+    width="stretch", height=300,
     column_config={
         'identity_id':     st.column_config.TextColumn('Identity ID',  width='small'),
         'name':            st.column_config.TextColumn('Name',         width='medium'),
@@ -214,7 +214,7 @@ with col_c1:
         textfont=dict(color='#F1F5F9', size=11, weight=600),
         marker_line_color='rgba(0,0,0,0)',
         hovertemplate='<b>%{y}</b><br>%{x} identities<extra></extra>')
-    st.plotly_chart(fig_dept, use_container_width=True)
+    st.plotly_chart(fig_dept, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_c2:
@@ -232,7 +232,7 @@ with col_c2:
     fig_types.update_traces(textinfo='percent', textfont=dict(size=11, color='white'),
         hovertemplate='<b>%{label}</b><br>%{value} (%{percent})<extra></extra>',
         marker=dict(line=dict(color=DARK_BG, width=2)))
-    st.plotly_chart(fig_types, use_container_width=True)
+    st.plotly_chart(fig_types, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Privilege distribution
@@ -253,7 +253,7 @@ fig_priv.add_vline(x=5, line_dash="dot", line_color="rgba(249,115,22,0.5)", line
                    annotation_text="High privilege threshold",
                    annotation_position="top right",
                    annotation_font=dict(size=10, color='#F97316'))
-st.plotly_chart(fig_priv, use_container_width=True)
+st.plotly_chart(fig_priv, width="stretch")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Identity Deep Dive ─────────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ else:
             ))
             fig_g.update_layout(paper_bgcolor=DARK_BG, font=dict(family=FONT_FAM),
                 height=220, margin=dict(t=60, b=10, l=20, r=20))
-            st.plotly_chart(fig_g, use_container_width=True)
+            st.plotly_chart(fig_g, width="stretch")
 
         with col_platforms:
             ad_status   = identity_data.get('ad_status', 'unknown')

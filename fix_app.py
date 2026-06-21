@@ -162,7 +162,7 @@ pg.run()
 
 # Sign out in a tiny sidebar that's always collapsed
 with st.sidebar:
-    if st.button("🚪 Sign Out", use_container_width=True, key="signout"):
+    if st.button("🚪 Sign Out", key="signout"):
         st.session_state.authenticated = False
         st.session_state.user = None
         st.rerun()

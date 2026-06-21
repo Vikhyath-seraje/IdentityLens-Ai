@@ -170,7 +170,7 @@ merged_df, remediation, audit_df = load_quarantine_data()
 # ── Demo Controls ──────────────────────────────────────────────────────────────
 with st.expander("⚙️ System Demo Controls", expanded=False):
     st.markdown('<div style="font-size:0.82rem;color:#94A3B8;margin-bottom:0.75rem;">Reset all identity records and quarantine states to re-run the security response demo cleanly.</div>', unsafe_allow_html=True)
-    if st.button("🔄 Reset Demo State", use_container_width=True):
+    if st.button("🔄 Reset Demo State", width="stretch"):
         with st.spinner("Restoring original account data and clearing quarantine records…"):
             reset_demo_state()
             st.cache_data.clear()
@@ -229,7 +229,7 @@ table_cols = ['identity_id', 'name', 'department', 'type', 'risk_score', 'risk_l
               'status', 'tokens_revoked', 'privileges_removed']
 st.dataframe(
     display_df[table_cols].sort_values('risk_score', ascending=False),
-    use_container_width=True, height=280,
+    width="stretch", height=280,
     column_config={
         'identity_id':        st.column_config.TextColumn('Identity ID',  width='small'),
         'name':               st.column_config.TextColumn('Name',         width='medium'),
@@ -379,7 +379,7 @@ else:
                     ))
                     fig_b.update_layout(paper_bgcolor=DARK_BG,font=dict(family=FONT_FAM),
                         height=200,margin=dict(t=60,b=10,l=20,r=20))
-                    st.plotly_chart(fig_b, use_container_width=True)
+                    st.plotly_chart(fig_b, width="stretch")
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 with col_a:
@@ -406,7 +406,7 @@ else:
                     ))
                     fig_a.update_layout(paper_bgcolor=DARK_BG,font=dict(family=FONT_FAM),
                         height=200,margin=dict(t=60,b=10,l=20,r=20))
-                    st.plotly_chart(fig_a, use_container_width=True)
+                    st.plotly_chart(fig_a, width="stretch")
                     st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown(f"""
@@ -451,7 +451,7 @@ else:
                     <span style="color:#F1F5F9;">Privileges removed: <strong>{remed.get('privileges_removed',0)}</strong></span>
                 </div>
                 """, unsafe_allow_html=True)
-                if st.button("🔓 Release from Quarantine", type="primary", use_container_width=True):
+                if st.button("🔓 Release from Quarantine", type="primary", width="stretch"):
                     with st.spinner("Reversing quarantine and restoring access state…"):
                         res = release_identity(selected_id)
                     st.success(res)
@@ -475,7 +475,7 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
-                if st.button("🔒 Initiate Quarantine", type="primary", use_container_width=True):
+                if st.button("🔒 Initiate Quarantine", type="primary", width="stretch"):
                     with st.spinner("Executing quarantine across AD, AWS IAM, and Okta…"):
                         res = quarantine_identity(selected_id, force=not policy_check['eligible'])
                     st.success(res)
@@ -494,7 +494,7 @@ if not audit_df.empty:
         default=[], placeholder="All actions shown…"
     )
     trail = audit_df if not action_filter else audit_df[audit_df['Action'].isin(action_filter)]
-    st.dataframe(trail, use_container_width=True, height=260)
+    st.dataframe(trail, width="stretch", height=260)
 else:
     st.info("No quarantine or release actions executed yet.")
 

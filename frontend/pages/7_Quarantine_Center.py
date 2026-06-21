@@ -161,7 +161,7 @@ if filter_risk != "All":
 # Select target identity
 st.dataframe(
     display_df[['identity_id', 'name', 'department', 'type', 'risk_score', 'risk_level', 'status']].sort_values('risk_score', ascending=False),
-    use_container_width=True,
+    width="stretch",
     height=300
 )
 
@@ -251,7 +251,7 @@ if selected_id:
             st.markdown("- [x] Quarantine audit record compiled")
             st.markdown("- [x] Dynamic Risk score recalculation completed")
             
-            if st.button("Release from Quarantine", type="primary", use_container_width=True):
+            if st.button("Release from Quarantine", type="primary"):
                 with st.spinner("Reversing quarantine and restoring previous state configurations..."):
                     res = release_identity(selected_id)
                     st.success(res)
@@ -270,7 +270,7 @@ if selected_id:
             st.markdown("- [ ] Broadcast security event logs")
             st.markdown("- [ ] Refresh risk metrics")
             
-            if st.button("Initiate Quarantine Action", type="primary", use_container_width=True):
+            if st.button("Initiate Quarantine Action", type="primary"):
                 # Force policy check if needed or just execute
                 with st.spinner("Executing Quarantine protocols across AD, AWS, and Okta platforms..."):
                     # Temporarily allow force-quarantine if not matching rules (for custom manual quarantine)
@@ -313,7 +313,7 @@ st.markdown('<h3 class="section-header">Remediation Engine Audit Trail</h3>', un
 if not audit_df.empty:
     st.dataframe(
         audit_df.rename(columns={"timestamp": "Execution Time", "status": "Action Taken"}),
-        use_container_width=True,
+        width="stretch",
         height=250
     )
 else:

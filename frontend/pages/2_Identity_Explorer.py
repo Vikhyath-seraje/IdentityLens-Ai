@@ -37,7 +37,7 @@ else:
 
 st.dataframe(
     filtered_df[['identity_id', 'name', 'type', 'department', 'ad_user', 'aws_user', 'okta_login', 'privilege_count']],
-    use_container_width=True
+    width="stretch"
 )
 
 st.subheader("Deep Dive")

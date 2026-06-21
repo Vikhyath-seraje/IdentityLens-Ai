@@ -29,9 +29,9 @@ if not rule_anomalies.empty:
     type_counts = rule_anomalies['anomaly_type'].value_counts().reset_index()
     type_counts.columns = ['Anomaly Type', 'Count']
     fig = px.bar(type_counts, x='Anomaly Type', y='Count', color='Anomaly Type')
-    st.plotly_chart(fig, use_container_width=True)
-    
-    st.dataframe(rule_anomalies, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
+
+    st.dataframe(rule_anomalies, width="stretch")
 else:
     st.success("No rule-based anomalies detected.")
 
@@ -46,7 +46,7 @@ if not ml_anomalies.empty:
     st.write(f"Detected **{len(ml_anomalies)}** ML-based anomalies.")
     st.dataframe(
         ml_anomalies[['identity_id', 'num_platforms', 'privilege_count', 'max_token_age', 'failed_logins', 'anomaly_decision_function']],
-        use_container_width=True
+        width="stretch"
     )
 else:
     st.success("No ML-based anomalies detected.")

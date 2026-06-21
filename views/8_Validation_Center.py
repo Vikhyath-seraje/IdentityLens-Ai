@@ -114,7 +114,7 @@ if 'validation_results' not in st.session_state:
 
 col1, col2 = st.columns([1, 4])
 with col1:
-    if st.button("▶ Run All Test Cases", type="primary", use_container_width=True):
+    if st.button("▶ Run All Test Cases", type="primary", width="stretch"):
         st.session_state.validation_results = "running"
         st.rerun()
 
@@ -183,7 +183,7 @@ if isinstance(st.session_state.validation_results, list):
             yaxis=dict(showgrid=False, showticklabels=False),
             margin=dict(t=0,b=0,l=0,r=0),
         )
-        st.plotly_chart(fig_cov, use_container_width=True)
+        st.plotly_chart(fig_cov, width="stretch")
 
     st.markdown('<br>', unsafe_allow_html=True)
 

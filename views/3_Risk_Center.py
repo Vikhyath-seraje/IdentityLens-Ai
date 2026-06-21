@@ -247,7 +247,7 @@ st.caption(f"Showing **{len(filtered_df)}** of **{len(risk_df)}** identities · 
 st.dataframe(
     filtered_df[['identity_id', 'name', 'department', 'type', 'risk_score', 'risk_level', 'anomaly_count', 'privilege_count']]
         .sort_values(by='risk_score', ascending=False),
-    use_container_width=True, height=320,
+    width="stretch", height=320,
     column_config={
         'identity_id':     st.column_config.TextColumn('Identity ID',   width='small'),
         'name':            st.column_config.TextColumn('Name',          width='medium'),
@@ -281,7 +281,7 @@ with col_c1:
     fig_hist.update_traces(
         hovertemplate='Score: <b>%{x}</b><br>Count: <b>%{y}</b><extra></extra>',
         marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5)
-    st.plotly_chart(fig_hist, use_container_width=True)
+    st.plotly_chart(fig_hist, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_c2:
@@ -304,7 +304,7 @@ with col_c2:
         textfont=dict(color='#F1F5F9', size=11, weight=600),
         hovertemplate='<b>%{y}</b><br>Avg Risk: <b>%{x:.1f}</b><extra></extra>',
         marker_line_color='rgba(0,0,0,0)')
-    st.plotly_chart(fig_dept, use_container_width=True)
+    st.plotly_chart(fig_dept, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Risk by Type ───────────────────────────────────────────────────────────────
@@ -324,7 +324,7 @@ if 'type' in risk_df.columns:
     fig_type.update_traces(
         hovertemplate='<b>%{x}</b> — %{data.name}<br>Count: <b>%{y}</b><extra></extra>',
         marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5)
-    st.plotly_chart(fig_type, use_container_width=True)
+    st.plotly_chart(fig_type, width="stretch")
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)

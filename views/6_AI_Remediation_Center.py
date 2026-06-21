@@ -299,7 +299,7 @@ else:
 
         with tab1:
             st.markdown('<div class="copilot-tab-desc">Gemini AI will explain the risk factors driving this identity\'s score, including anomaly patterns, privilege exposure, and threat context.</div>', unsafe_allow_html=True)
-            if st.button("🔍 Explain Risk Factors", type="primary", use_container_width=False, key="btn_explain_risk"):
+            if st.button("🔍 Explain Risk Factors", type="primary", width="content", key="btn_explain_risk"):
                 with st.spinner("Gemini AI is analysing risk factors…"):
                     prompt = f"Explain the security risk factors for this identity in a SOC context: {identity_context}. Anomaly detected: {anomaly_type} - {description}. Provide a structured risk explanation with severity assessment."
                     result = ai_engine.get_remediation(prompt, identity_context)
@@ -318,7 +318,7 @@ else:
 
         with tab2:
             st.markdown('<div class="copilot-tab-desc">Understand how this identity could be used as an entry point for lateral movement — what attack paths are available through their group memberships and role assignments.</div>', unsafe_allow_html=True)
-            if st.button("🕸️ Explain Attack Path", type="primary", use_container_width=False, key="btn_explain_path"):
+            if st.button("🕸️ Explain Attack Path", type="primary", width="content", key="btn_explain_path"):
                 with st.spinner("Gemini AI is tracing attack paths…"):
                     prompt = f"Explain the potential attack paths and lateral movement risks for this identity in the enterprise network: {identity_context}. Focus on privilege escalation routes, group memberships, and platform access risks."
                     result = ai_engine.get_remediation(prompt, identity_context)
@@ -334,7 +334,7 @@ else:
 
         with tab3:
             st.markdown('<div class="copilot-tab-desc">Get a prioritised, step-by-step remediation playbook tailored to this specific anomaly and identity context — ready to share with your security team.</div>', unsafe_allow_html=True)
-            if st.button("🛡️ Generate Remediation Plan", type="primary", use_container_width=False, key="btn_remediation"):
+            if st.button("🛡️ Generate Remediation Plan", type="primary", width="content", key="btn_remediation"):
                 with st.spinner("Gemini AI is building your remediation playbook…"):
                     result = ai_engine.get_remediation(description, identity_context)
                 st.session_state['ai_plan_count'] = st.session_state.get('ai_plan_count', 0) + 1
@@ -359,7 +359,7 @@ else:
 
         with tab4:
             st.markdown('<div class="copilot-tab-desc">Get a comprehensive identity summary including risk profile, platform presence, anomaly history, and recommended security posture improvements.</div>', unsafe_allow_html=True)
-            if st.button("📋 Generate Identity Summary", type="primary", use_container_width=False, key="btn_summarize"):
+            if st.button("📋 Generate Identity Summary", type="primary", width="content", key="btn_summarize"):
                 with st.spinner("Gemini AI is summarizing the identity profile…"):
                     prompt = f"Provide a comprehensive security summary for this enterprise identity: {identity_context}. Include risk profile, recommended security posture, compliance implications, and priority actions. Format as an executive briefing."
                     result = ai_engine.get_remediation(prompt, identity_context)

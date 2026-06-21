@@ -7,11 +7,12 @@ from backend.identity_resolver import IdentityResolver
 from backend.risk_engine import RiskEngine
 from backend.anomaly_detection import AnomalyDetectionEngine
 
-# Note: A previous version monkey-patched st.plotly_chart here to strip stray
-# "undefined" chart titles. That patch caused RecursionError on Streamlit Cloud
-# (st.plotly_chart is a bound method on PlotlyMixin, and reassigning it across
-# Streamlit reruns recursed infinitely, breaking EVERY chart). Removed because
-# the cosmetic benefit was not worth breaking all visualizations.
+# ── Defensive cleanup: wipe stale monkey-patch state from previous deploys ──
+# Older versions patched st.plotly_chart and stashed it on the st module.
+# If Streamlit Cloud still has a cached process with that state, delete it
+# so it doesn't interfere with the unpatched st.plotly_chart.
+if hasattr(st, "_il_original_plotly_chart"):
+    del st._il_original_plotly_chart
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -1009,7 +1010,7 @@ if not st.session_state.authenticated:
                                   type="password", key="login_pass",
                                   label_visibility="visible")
 
-        if st.button("Sign In →", type="primary", use_container_width=True, key="login_btn"):
+        if st.button("Sign In →", type="primary", key="login_btn"):
             if username in VALID_USERS and VALID_USERS[username]["password"] == password:
                 st.session_state.authenticated = True
                 st.session_state.user = {"username": username, **VALID_USERS[username]}

@@ -32,10 +32,10 @@ else:
 
 st.dataframe(
     filtered_df[['identity_id', 'name', 'department', 'risk_score', 'risk_level', 'anomaly_count', 'privilege_count']].sort_values(by='risk_score', ascending=False),
-    use_container_width=True
+    width="stretch"
 )
 
 st.subheader("Risk Score Distribution")
 fig_hist = px.histogram(risk_df, x="risk_score", color="risk_level", nbins=20, 
                         color_discrete_map={'Critical': 'red', 'High': 'orange', 'Medium': 'yellow', 'Low': 'green'})
-st.plotly_chart(fig_hist, use_container_width=True)
+st.plotly_chart(fig_hist, width="stretch")

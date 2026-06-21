@@ -37,7 +37,7 @@ with col_charts_1:
     st.subheader("Identity Types Distribution")
     type_df = pd.DataFrame(list(summary['types'].items()), columns=['Type', 'Count'])
     fig_types = px.pie(type_df, values='Count', names='Type', hole=0.4, color_discrete_sequence=px.colors.sequential.Teal)
-    st.plotly_chart(fig_types, use_container_width=True)
+    st.plotly_chart(fig_types, width="stretch")
 
 with col_charts_2:
     st.subheader("Risk Level Distribution")
@@ -46,9 +46,9 @@ with col_charts_2:
     # Ensure order for colors
     color_map = {'Critical': 'red', 'High': 'orange', 'Medium': 'yellow', 'Low': 'green'}
     fig_risk = px.bar(risk_counts, x='Risk Level', y='Count', color='Risk Level', color_discrete_map=color_map)
-    st.plotly_chart(fig_risk, use_container_width=True)
+    st.plotly_chart(fig_risk, width="stretch")
 
 st.subheader("Identities by Department")
 dept_df = pd.DataFrame(list(summary['departments'].items()), columns=['Department', 'Count'])
 fig_dept = px.bar(dept_df, x='Department', y='Count', color='Department', color_discrete_sequence=px.colors.qualitative.Pastel)
-st.plotly_chart(fig_dept, use_container_width=True)
+st.plotly_chart(fig_dept, width="stretch")
