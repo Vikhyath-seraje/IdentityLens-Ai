@@ -12,14 +12,22 @@ CARD_BG   = '#1E293B'
 TEXT_COL  = '#94A3B8'
 FONT_FAM  = 'Inter, sans-serif'
 
-# Node colors per spec
+# Node colors per spec — Identity colors vary by type
 NODE_COLORS = {
-    'Identity': '#3B82F6',   # Blue
+    'Identity': '#3B82F6',   # Blue (default, overridden below for SA types)
     'Group':    '#8B5CF6',   # Purple
     'Role':     '#F97316',   # Orange
     'Policy':   '#EF4444',   # Red
     'Platform': '#22C55E',   # Green (Resource/Platform)
-    'Resource': '#22C55E',   # Green
+    'Resource': '#EF4444',   # Red (high-sensitivity resources)
+}
+
+# Identity sub-type colors for ITDR differentiation
+IDENTITY_TYPE_COLORS = {
+    'ServiceAccount':           '#F97316',  # Orange
+    'PrivilegedServiceAccount': '#EF4444',  # Red
+    'Employee':                 '#3B82F6',  # Blue
+    'Contractor':               '#8B5CF6',  # Purple
 }
 
 st.markdown("""
@@ -270,7 +278,7 @@ else:
 
     # Nodes per type
     for ntype, clr in NODE_COLORS.items():
-        node_x, node_y, node_hover, node_labels, node_sizes = [], [], [], [], []
+        node_x, node_y, node_hover, node_labels, node_sizes, node_colors = [], [], [], [], [], []
         for node in subG.nodes():
             if node not in pos:
                 continue
@@ -288,6 +296,12 @@ else:
             # Bigger node if in attack path
             base_size = size_map.get(ntype, node_scale)
             node_sizes.append(int(base_size * 1.4) if (node in attack_path_nodes and highlight_paths) else base_size)
+            # Per-identity-type color for Identity nodes (ITDR differentiation)
+            if ntype == 'Identity':
+                id_type = subG.nodes[node].get('identity_type', 'Employee')
+                node_colors.append(IDENTITY_TYPE_COLORS.get(id_type, '#3B82F6'))
+            else:
+                node_colors.append(clr)
 
         if not node_x:
             continue
@@ -305,7 +319,7 @@ else:
             hoverinfo='text',
             hovertext=node_hover,
             marker=dict(
-                color=clr,
+                color=node_colors,
                 size=node_sizes,
                 symbol=symbol_map.get(ntype, 'circle'),
                 opacity=0.92,
@@ -347,8 +361,23 @@ else:
                         color:#64748B;margin-bottom:0.75rem;font-weight:700;">Node Types</div>
             <div class="legend-row">
                 <span class="legend-dot" style="background:#3B82F6;box-shadow:0 0 6px rgba(59,130,246,0.5);"></span>
-                <strong style="color:#F1F5F9;">Identity</strong>
-                <span style="margin-left:auto;font-size:0.75rem;">User or service account</span>
+                <strong style="color:#F1F5F9;">Employee</strong>
+                <span style="margin-left:auto;font-size:0.75rem;">Regular user identity</span>
+            </div>
+            <div class="legend-row">
+                <span class="legend-dot" style="background:#8B5CF6;box-shadow:0 0 6px rgba(139,92,246,0.5);"></span>
+                <strong style="color:#F1F5F9;">Contractor</strong>
+                <span style="margin-left:auto;font-size:0.75rem;">External worker</span>
+            </div>
+            <div class="legend-row">
+                <span class="legend-dot" style="background:#F97316;box-shadow:0 0 6px rgba(249,115,22,0.5);"></span>
+                <strong style="color:#F1F5F9;">Service Account</strong>
+                <span style="margin-left:auto;font-size:0.75rem;">Automated / non-human</span>
+            </div>
+            <div class="legend-row">
+                <span class="legend-dot" style="background:#EF4444;box-shadow:0 0 6px rgba(239,68,68,0.5);"></span>
+                <strong style="color:#F1F5F9;">Privileged SA</strong>
+                <span style="margin-left:auto;font-size:0.75rem;">Elevated service account</span>
             </div>
             <div class="legend-row">
                 <span class="legend-dot" style="background:#8B5CF6;box-shadow:0 0 6px rgba(139,92,246,0.5);transform:rotate(45deg);border-radius:2px;"></span>
@@ -362,12 +391,12 @@ else:
             </div>
             <div class="legend-row">
                 <span class="legend-dot" style="background:#EF4444;box-shadow:0 0 6px rgba(239,68,68,0.5);clip-path:polygon(50% 0%,100% 100%,0% 100%);border-radius:0;"></span>
-                <strong style="color:#F1F5F9;">Policy</strong>
-                <span style="margin-left:auto;font-size:0.75rem;">IAM policy document</span>
+                <strong style="color:#F1F5F9;">Resource</strong>
+                <span style="margin-left:auto;font-size:0.75rem;">High-sensitivity target</span>
             </div>
             <div class="legend-row">
                 <span class="legend-dot" style="background:#22C55E;box-shadow:0 0 6px rgba(34,197,94,0.5);"></span>
-                <strong style="color:#F1F5F9;">Resource/Platform</strong>
+                <strong style="color:#F1F5F9;">Platform</strong>
                 <span style="margin-left:auto;font-size:0.75rem;">AWS, AD, or Okta</span>
             </div>
         </div>

@@ -1,6 +1,38 @@
 import sqlite3
 import pandas as pd
-from datetime import datetime
+
+# ── MITRE ATT&CK Mapping ───────────────────────────────────────────────────────────
+MITRE_MAPPING = {
+    'Offboarding Gap':            {'technique': 'T1098', 'tactic': 'Persistence',        'name': 'Account Manipulation'},
+    'Token Abuse':                {'technique': 'T1552', 'tactic': 'Credential Access',   'name': 'Unsecured Credentials'},
+    'Old API Token':             {'technique': 'T1552', 'tactic': 'Credential Access',   'name': 'Unsecured Credentials'},
+    'Cross Platform Admin':       {'technique': 'T1078', 'tactic': 'Initial Access',      'name': 'Valid Accounts'},
+    'Dormant Admin':             {'technique': 'T1021', 'tactic': 'Lateral Movement',    'name': 'Remote Services'},
+    'Service Account Abuse':     {'technique': 'T1078.004', 'tactic': 'Initial Access',   'name': 'Valid Accounts: Cloud Accounts'},
+    'Nested Escalation':         {'technique': 'T1078', 'tactic': 'Privilege Escalation','name': 'Valid Accounts'},
+    'Expired Privilege':         {'technique': 'T1098', 'tactic': 'Persistence',        'name': 'Account Manipulation'},
+    'Privilege Escalation':      {'technique': 'T1548', 'tactic': 'Privilege Escalation','name': 'Abuse Elevation Control Mechanism'},
+    'Orphan Contractor':         {'technique': 'T1133', 'tactic': 'Initial Access',      'name': 'External Remote Services'},
+    'Impossible Travel':         {'technique': 'T1078', 'tactic': 'Initial Access',      'name': 'Valid Accounts'},
+    'Credential Sharing':        {'technique': 'T1110', 'tactic': 'Credential Access',  'name': 'Brute Force'},
+    'UNAUTHORIZED_PRIVILEGE_ESCALATION': {'technique': 'T1548', 'tactic': 'Privilege Escalation', 'name': 'Abuse Elevation Control Mechanism'},
+    'FIRST_TIME_SENSITIVE_ACCESS':     {'technique': 'T1213', 'tactic': 'Collection',  'name': 'Data from Information Repositories'},
+    'OUTSIDE_NORMAL_ACTIVITY_WINDOW':   {'technique': 'T1021', 'tactic': 'Lateral Movement', 'name': 'Remote Services'},
+    'SERVICE_ACCOUNT_COMPROMISE':       {'technique': 'T1078.004', 'tactic': 'Initial Access', 'name': 'Valid Accounts: Cloud Accounts'},
+}
+
+def get_mitre_mapping(anomaly_type):
+    """Return MITRE ATT&CK mapping dict for a given anomaly type."""
+    return MITRE_MAPPING.get(anomaly_type, {
+        'technique': 'N/A', 'tactic': 'N/A', 'name': 'N/A'
+    })
+
+# ── High-sensitivity resources for ITDR Rule 13 ────────────────────────────────────
+HIGH_SENSITIVITY_RESOURCES = {
+    'hr_database.salaries', 'financial-records', 'customer-data',
+    'production-secrets', 'source-code'
+}
+
 
 class AnomalyDetectionEngine:
     def __init__(self, db_path='database/identitylens.db'):
@@ -65,14 +97,12 @@ class AnomalyDetectionEngine:
                 })
 
         # 4. Dormant Admin: Admin role but no recent login (simplified check)
-        # Assuming last_login is YYYY-MM-DD
         query_dormant = """
         SELECT identity_id, ad_user, role, last_login FROM ad_accounts WHERE role LIKE '%Admin%' AND status = 'Active'
         """
         ad_admins = pd.read_sql_query(query_dormant, conn)
-        # simplified check: we just flag if last_login is None or very old
         for _, row in ad_admins.iterrows():
-            if pd.isna(row['last_login']) or row['last_login'] < '2023-01-01': # dummy threshold
+            if pd.isna(row['last_login']) or row['last_login'] < '2023-01-01':
                 anomalies.append({
                     'identity_id': row['identity_id'],
                     'anomaly_type': 'Dormant Admin',
@@ -84,7 +114,7 @@ class AnomalyDetectionEngine:
         SELECT i.identity_id, okta.last_login
         FROM identities i
         JOIN okta_accounts okta ON i.identity_id = okta.identity_id
-        WHERE i.type = 'Service Account' AND okta.last_login IS NOT NULL
+        WHERE i.type IN ('ServiceAccount', 'PrivilegedServiceAccount') AND okta.last_login IS NOT NULL
         """
         svc_abuse = pd.read_sql_query(query_svc, conn)
         for _, row in svc_abuse.iterrows():
@@ -118,7 +148,7 @@ class AnomalyDetectionEngine:
                     'description': f"Identity inherits GlobalAdmins privileges via nested groups."
                 })
         except Exception:
-            pass # Table might be empty or missing during basic runs
+            pass
 
         # 7. Expired Privilege Exception
         query_expired = """
@@ -205,6 +235,100 @@ class AnomalyDetectionEngine:
         except Exception:
             pass
 
+        # ══════════════════════════════════════════════════════
+        # ITDR RULES 12-15
+        # ══════════════════════════════════════════════════════
+
+        # 12. UNAUTHORIZED_PRIVILEGE_ESCALATION: Service Account + PrivilegeEscalation without approved ticket
+        try:
+            query_unauth_esc = """
+            SELECT DISTINCT al.identity_id, al.detail
+            FROM audit_logs al
+            JOIN identities i ON al.identity_id = i.identity_id
+            WHERE al.action = 'RoleAssigned' AND al.detail LIKE '%Self-assigned%'
+            AND i.type IN ('ServiceAccount', 'PrivilegedServiceAccount')
+            AND al.identity_id NOT IN (
+                SELECT cr.identity_id FROM change_requests cr
+                WHERE cr.change_type = 'PrivilegeEscalation' AND cr.approved = 1
+            )
+            """
+            unauth_df = pd.read_sql_query(query_unauth_esc, conn)
+            for _, row in unauth_df.iterrows():
+                anomalies.append({
+                    'identity_id': row['identity_id'],
+                    'anomaly_type': 'UNAUTHORIZED_PRIVILEGE_ESCALATION',
+                    'description': "Service account performed privilege escalation without an approved change ticket."
+                })
+        except Exception:
+            pass
+
+        # 13. FIRST_TIME_SENSITIVE_ACCESS: First-time access to high-sensitivity resources
+        try:
+            high_res_list = "', '".join(HIGH_SENSITIVITY_RESOURCES)
+            query_first_access = f"""
+            SELECT ral.identity_id, ral.resource, ral.timestamp
+            FROM resource_access_logs ral
+            WHERE ral.resource IN ('{high_res_list}')
+            GROUP BY ral.identity_id, ral.resource
+            HAVING COUNT(*) = 1
+            """
+            first_access_df = pd.read_sql_query(query_first_access, conn)
+            for _, row in first_access_df.iterrows():
+                anomalies.append({
+                    'identity_id': row['identity_id'],
+                    'anomaly_type': 'FIRST_TIME_SENSITIVE_ACCESS',
+                    'description': f"First-time access to high-sensitivity resource: {row['resource']}."
+                })
+        except Exception:
+            pass
+
+        # 14. OUTSIDE_NORMAL_ACTIVITY_WINDOW: Access outside baseline hours
+        try:
+            query_outside_hours = """
+            SELECT ral.identity_id, ral.timestamp,
+                   CAST(strftime('%H', ral.timestamp) AS INTEGER) AS access_hour,
+                   bl.start_hour, bl.end_hour
+            FROM resource_access_logs ral
+            JOIN identity_baselines bl ON ral.identity_id = bl.identity_id
+            WHERE CAST(strftime('%H', ral.timestamp) AS INTEGER) < bl.start_hour
+               OR CAST(strftime('%H', ral.timestamp) AS INTEGER) > bl.end_hour
+            GROUP BY ral.identity_id
+            """
+            outside_df = pd.read_sql_query(query_outside_hours, conn)
+            for _, row in outside_df.iterrows():
+                anomalies.append({
+                    'identity_id': row['identity_id'],
+                    'anomaly_type': 'OUTSIDE_NORMAL_ACTIVITY_WINDOW',
+                    'description': f"Access at hour {row['access_hour']} outside baseline window ({row['start_hour']}:00-{row['end_hour']}:00)."
+                })
+        except Exception:
+            pass
+
+        # 15. SERVICE_ACCOUNT_COMPROMISE: Composite — SA type + unauthorized escalation + first-time sensitive + outside hours
+        try:
+            flagged_ids = set(a['identity_id'] for a in anomalies
+                              if a['anomaly_type'] in (
+                                  'UNAUTHORIZED_PRIVILEGE_ESCALATION',
+                                  'FIRST_TIME_SENSITIVE_ACCESS',
+                                  'OUTSIDE_NORMAL_ACTIVITY_WINDOW'
+                              ))
+            if flagged_ids:
+                placeholders = ','.join(['?' for _ in flagged_ids])
+                sa_flagged = pd.read_sql_query(
+                    f"SELECT DISTINCT identity_id FROM identities "
+                    f"WHERE identity_id IN ({placeholders}) "
+                    f"AND type IN ('ServiceAccount', 'PrivilegedServiceAccount')",
+                    conn, params=list(flagged_ids)
+                )
+                for _, row in sa_flagged.iterrows():
+                    anomalies.append({
+                        'identity_id': row['identity_id'],
+                        'anomaly_type': 'SERVICE_ACCOUNT_COMPROMISE',
+                        'description': "Composite indicator: Service account showing multiple compromise signals (unauthorized escalation, sensitive access, off-hours activity)."
+                    })
+        except Exception:
+            pass
+
         conn.close()
         return pd.DataFrame(anomalies)
 
@@ -213,3 +337,5 @@ if __name__ == "__main__":
     df = engine.detect_anomalies()
     print(df.head(10))
     print(f"Total anomalies detected: {len(df)}")
+    print(f"\nAnomaly type breakdown:")
+    print(df['anomaly_type'].value_counts().to_string())

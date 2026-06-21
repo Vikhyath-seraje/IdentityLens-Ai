@@ -2,6 +2,15 @@ import sqlite3
 import pandas as pd
 import networkx as nx
 
+# Import high-sensitivity resources (with fallback for standalone execution)
+try:
+    from backend.anomaly_detection import HIGH_SENSITIVITY_RESOURCES
+except ImportError:
+    HIGH_SENSITIVITY_RESOURCES = {
+        'hr_database.salaries', 'financial-records', 'customer-data',
+        'production-secrets', 'source-code'
+    }
+
 class AttackGraphGenerator:
     def __init__(self, db_path='database/identitylens.db'):
         self.db_path = db_path
@@ -9,19 +18,20 @@ class AttackGraphGenerator:
     def generate_graph(self):
         """
         Generates a NetworkX graph representing the attack paths.
-        Nodes: Identities, Groups, Roles, Platforms.
+        Nodes: Identities, Groups, Roles, Platforms, Resources.
         Edges: Relationships (e.g., Identity -> Group -> Role -> Platform).
         """
         conn = sqlite3.connect(self.db_path)
         G = nx.DiGraph()
 
-        # Add Identities
+        # Add Identities with identity_type attribute
         identities = pd.read_sql_query("SELECT identity_id, type FROM identities", conn)
         for _, row in identities.iterrows():
-            G.add_node(row['identity_id'], type='Identity', label=row['identity_id'])
+            G.add_node(row['identity_id'], type='Identity', label=row['identity_id'],
+                       identity_type=row['type'])
 
         # Add Groups from memberships
-        groups = pd.read_sql_query("SELECT [group], parent_group FROM group_memberships", conn)
+        groups = pd.read_sql_query('SELECT "group", parent_group FROM group_memberships', conn)
         for _, row in groups.iterrows():
             G.add_node(row['group'], type='Group', label=row['group'])
             if pd.notna(row['parent_group']):
@@ -42,9 +52,7 @@ class AttackGraphGenerator:
         except Exception as e:
             pass
 
-        # For quarantined identities, replace live access edges with a single
-        # Quarantine Role node so the neutralized attack path stays visible
-        # (spec: "Remove attack-path edges and replace with Quarantine Role").
+        # Quarantine Role node
         QUARANTINE_ROLE = 'Quarantined'
         G.add_node(QUARANTINE_ROLE, type='Role', label=QUARANTINE_ROLE,
                    quarantined=True)
@@ -53,7 +61,7 @@ class AttackGraphGenerator:
                 continue
             G.add_edge(qid, QUARANTINE_ROLE, relation='QUARANTINED')
 
-        # Add AD Roles (skip quarantined identities — their path is via Quarantine Role)
+        # Add AD Roles (skip quarantined identities)
         ad_roles = pd.read_sql_query("SELECT identity_id, role FROM ad_accounts WHERE role IS NOT NULL", conn)
         for _, row in ad_roles.iterrows():
             if row['identity_id'] in quarantined_ids:
@@ -82,6 +90,24 @@ class AttackGraphGenerator:
             G.add_node('Okta', type='Platform', label='Okta')
             G.add_edge(row['identity_id'], row['role'], relation='HAS_ROLE')
             G.add_edge(row['role'], 'Okta', relation='ACCESS_TO')
+
+        # ── Resource Access Edges (ITDR) ──────────────────────────────────────────
+        # Add resource nodes and edges for high-sensitivity resource access
+        try:
+            high_res_list = list(HIGH_SENSITIVITY_RESOURCES)
+            placeholders = ','.join(['?' for _ in high_res_list])
+            resource_access = pd.read_sql_query(
+                f"SELECT DISTINCT identity_id, resource FROM resource_access_logs "
+                f"WHERE resource IN ({placeholders})",
+                conn, params=high_res_list
+            )
+            for _, row in resource_access.iterrows():
+                res_node = row['resource']
+                G.add_node(res_node, type='Resource', label=res_node)
+                if row['identity_id'] not in quarantined_ids:
+                    G.add_edge(row['identity_id'], res_node, relation='ACCESSES')
+        except Exception:
+            pass
 
         conn.close()
         return G

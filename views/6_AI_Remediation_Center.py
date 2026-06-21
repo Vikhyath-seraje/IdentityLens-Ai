@@ -9,9 +9,29 @@ import pandas as pd
 from datetime import datetime, timedelta
 import random
 from backend.ai_engine import AIEngine
-from backend.anomaly_detection import AnomalyDetectionEngine
+from backend.anomaly_detection import AnomalyDetectionEngine, get_mitre_mapping
 from backend.identity_resolver import IdentityResolver
 from backend.risk_engine import RiskEngine
+
+# Severity color map for anomaly types (mirrors Anomaly Detection view)
+ANOMALY_SEVERITY_COLORS = {
+    'SERVICE_ACCOUNT_COMPROMISE':           '#DC2626',
+    'UNAUTHORIZED_PRIVILEGE_ESCALATION':    '#EA580C',
+    'FIRST_TIME_SENSITIVE_ACCESS':         '#F59E0B',
+    'OUTSIDE_NORMAL_ACTIVITY_WINDOW':      '#EAB308',
+    'Privilege Escalation':                '#F97316',
+    'Cross Platform Admin':                '#F97316',
+    'Impossible Travel':                  '#F97316',
+    'Token Abuse':                         '#EF4444',
+    'Credential Sharing':                 '#EF4444',
+    'Service Account Abuse':              '#F97316',
+    'Nested Escalation':                  '#F97316',
+    'Expired Privilege':                  '#EAB308',
+    'Dormant Admin':                      '#EAB308',
+    'Orphan Contractor':                  '#3B82F6',
+    'Offboarding Gap':                    '#3B82F6',
+    'Old API Token':                      '#64748B',
+}
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -198,6 +218,10 @@ else:
         anomaly_type = row.get('anomaly_type', '—')
         description  = row.get('description', 'No description available.')
 
+        # MITRE ATT&CK mapping for this anomaly
+        mitre_info = get_mitre_mapping(anomaly_type)
+        anomaly_sev_color = ANOMALY_SEVERITY_COLORS.get(anomaly_type, '#F97316')
+
         # Profile cards
         col_id, col_anomaly = st.columns(2)
 
@@ -227,15 +251,28 @@ else:
 
         with col_anomaly:
             st.markdown(f"""
-            <div class="anomaly-card">
+            <div class="anomaly-card" style="border-left:3px solid {anomaly_sev_color};border-color:{anomaly_sev_color}40;">
                 <div style="font-size:0.62rem;text-transform:uppercase;letter-spacing:1px;
                             color:#64748B;margin-bottom:0.8rem;font-weight:700;">ANOMALY DETAILS</div>
-                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem;">
-                    <span style="background:rgba(249,115,22,0.12);color:#F97316;
-                                 border:1px solid rgba(249,115,22,0.25);
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.7rem;flex-wrap:wrap;">
+                    <span style="background:rgba({",".join(str(int(anomaly_sev_color.lstrip('#')[i:i+2], 16)) for i in (0,2,4))},0.12);color:{anomaly_sev_color};
+                                 border:1px solid {anomaly_sev_color}40;
                                  padding:0.2rem 0.65rem;border-radius:100px;font-size:0.7rem;font-weight:700;">
                         {anomaly_type}
                     </span>
+                    <span style="background:rgba(139,92,246,0.12);color:#8B5CF6;
+                                 border:1px solid rgba(139,92,246,0.3);
+                                 padding:0.2rem 0.65rem;border-radius:100px;font-size:0.62rem;font-weight:700;">
+                        🎯 MITRE {mitre_info['technique']}
+                    </span>
+                    <span style="background:rgba(59,130,246,0.08);color:#94A3B8;
+                                 border:1px solid rgba(148,163,184,0.2);
+                                 padding:0.2rem 0.65rem;border-radius:100px;font-size:0.6rem;">
+                        {mitre_info['tactic']}
+                    </span>
+                </div>
+                <div style="font-size:0.75rem;color:#64748B;margin-bottom:0.5rem;">
+                    <strong style="color:#8B5CF6;">ATT&CK Technique:</strong> {mitre_info['name']}
                 </div>
                 <div style="font-size:0.87rem;color:#94A3B8;line-height:1.6;">{description}</div>
             </div>
@@ -256,7 +293,8 @@ else:
             f"Name: {row.get('name', 'Unknown')}, "
             f"Department: {row.get('department', '—')}, "
             f"Risk Score: {risk_score:.0f}/100, "
-            f"Risk Level: {risk_level}"
+            f"Risk Level: {risk_level}, "
+            f"MITRE ATT&CK: {mitre_info['technique']} ({mitre_info['name']}, Tactic: {mitre_info['tactic']})"
         )
 
         with tab1:

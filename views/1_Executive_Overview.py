@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import numpy as np
 from backend.risk_engine import RiskEngine
 from backend.identity_resolver import IdentityResolver
+from backend.anomaly_detection import AnomalyDetectionEngine, MITRE_MAPPING, get_mitre_mapping
 
 # ── Dark Chart Theme ───────────────────────────────────────────────────────────
 DARK_BG    = '#0F172A'
@@ -232,8 +233,21 @@ def get_anomaly_count():
 
 anomaly_count = get_anomaly_count()
 
+# ITDR-specific counts
+@st.cache_data(ttl=300)
+def get_itdr_counts():
+    try:
+        anoms = AnomalyDetectionEngine().detect_anomalies()
+        sa_compromise = len(anoms[anoms['anomaly_type'] == 'SERVICE_ACCOUNT_COMPROMISE'])
+        unauth_esc = len(anoms[anoms['anomaly_type'] == 'UNAUTHORIZED_PRIVILEGE_ESCALATION'])
+        return sa_compromise, unauth_esc
+    except:
+        return 0, 0
+
+sa_compromise_count, unauth_esc_count = get_itdr_counts()
+
 st.markdown(f"""
-<div class="kpi-grid">
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
     <div class="exec-kpi accent">
         <div class="stripe" style="background:#3B82F6;box-shadow:0 0 10px rgba(59,130,246,0.4);"></div>
         <div class="glow" style="background:#3B82F6;"></div>
@@ -266,6 +280,8 @@ st.markdown(f"""
         <div class="kpi-val" style="color:#8B5CF6;">{quarantined_count}</div>
         <div class="kpi-sub">Access revoked accounts</div>
     </div>
+</div>
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
     <div class="exec-kpi" style="">
         <div class="stripe" style="background:#F59E0B;box-shadow:0 0 10px rgba(245,158,11,0.4);"></div>
         <div class="glow" style="background:#F59E0B;"></div>
@@ -281,6 +297,22 @@ st.markdown(f"""
         <div class="kpi-lbl">Anomalies Detected</div>
         <div class="kpi-val" style="color:#06B6D4;">{anomaly_count}</div>
         <div class="kpi-sub">Behavioural deviations</div>
+    </div>
+    <div class="exec-kpi" style="">
+        <div class="stripe" style="background:#DC2626;box-shadow:0 0 10px rgba(220,38,38,0.4);"></div>
+        <div class="glow" style="background:#DC2626;"></div>
+        <div class="kpi-icon-bg">🤖</div>
+        <div class="kpi-lbl">SA Compromise Alerts</div>
+        <div class="kpi-val" style="color:#DC2626;">{sa_compromise_count}</div>
+        <div class="kpi-sub">Composite ITDR indicators</div>
+    </div>
+    <div class="exec-kpi" style="">
+        <div class="stripe" style="background:#EA580C;box-shadow:0 0 10px rgba(234,88,12,0.4);"></div>
+        <div class="glow" style="background:#EA580C;"></div>
+        <div class="kpi-icon-bg">⚡</div>
+        <div class="kpi-lbl">Unauthorized Escalations</div>
+        <div class="kpi-val" style="color:#EA580C;">{unauth_esc_count}</div>
+        <div class="kpi-sub">No approved change ticket</div>
     </div>
 </div>
 """, unsafe_allow_html=True)

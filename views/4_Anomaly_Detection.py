@@ -4,8 +4,28 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from backend.anomaly_detection import AnomalyDetectionEngine
+from backend.anomaly_detection import AnomalyDetectionEngine, get_mitre_mapping
 from models.isolation_forest import MLModel
+
+# Severity color map for anomaly types
+ANOMALY_SEVERITY_COLORS = {
+    'SERVICE_ACCOUNT_COMPROMISE':           '#DC2626',
+    'UNAUTHORIZED_PRIVILEGE_ESCALATION':    '#EA580C',
+    'FIRST_TIME_SENSITIVE_ACCESS':         '#F59E0B',
+    'OUTSIDE_NORMAL_ACTIVITY_WINDOW':      '#EAB308',
+    'Privilege Escalation':                '#F97316',
+    'Cross Platform Admin':                '#F97316',
+    'Impossible Travel':                  '#F97316',
+    'Token Abuse':                         '#EF4444',
+    'Credential Sharing':                 '#EF4444',
+    'Service Account Abuse':              '#F97316',
+    'Nested Escalation':                  '#F97316',
+    'Expired Privilege':                  '#EAB308',
+    'Dormant Admin':                      '#EAB308',
+    'Orphan Contractor':                  '#3B82F6',
+    'Offboarding Gap':                    '#3B82F6',
+    'Old API Token':                      '#64748B',
+}
 
 DARK_BG  = '#0F172A'
 CARD_BG  = '#1E293B'
@@ -146,14 +166,15 @@ with tab1:
             type_counts = rule_anomalies['anomaly_type'].value_counts().reset_index()
             type_counts.columns = ['Anomaly Type', 'Count']
             type_counts = type_counts.sort_values('Count', ascending=True)
+            # Add severity color per anomaly type
+            type_counts['bar_color'] = type_counts['Anomaly Type'].map(ANOMALY_SEVERITY_COLORS).fillna('#64748B')
 
             fig = go.Figure(go.Bar(
                 x=type_counts['Count'],
                 y=type_counts['Anomaly Type'],
                 orientation='h',
                 marker=dict(
-                    color=type_counts['Count'],
-                    colorscale=[[0, '#1E293B'], [0.4, '#B45309'], [1.0, '#EF4444']],
+                    color=type_counts['bar_color'],
                     line=dict(color='rgba(0,0,0,0)'),
                     opacity=0.9,
                 ),
@@ -204,6 +225,11 @@ with tab1:
             st.plotly_chart(fig_mini, use_container_width=True)
 
         st.markdown('<div class="section-hdr"><h2>Anomaly Records</h2></div>', unsafe_allow_html=True)
+        # Add MITRE ATT&CK info to the display
+        display_anomalies = display_anomalies.copy()
+        display_anomalies['MITRE Technique'] = display_anomalies['anomaly_type'].apply(
+            lambda x: f"{get_mitre_mapping(x)['technique']} — {get_mitre_mapping(x)['name']}"
+        )
         st.dataframe(
             display_anomalies,
             use_container_width=True, height=320,

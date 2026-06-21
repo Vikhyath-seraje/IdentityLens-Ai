@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from backend.risk_engine import RiskEngine
 from backend.identity_resolver import IdentityResolver
+from backend.anomaly_detection import AnomalyDetectionEngine, get_mitre_mapping
 
 
 def _clr_to_rgba(hex_color):
@@ -217,13 +218,16 @@ for _, row in top10.iterrows():
 # ── Filters & Full Table ───────────────────────────────────────────────────────
 st.markdown('<div class="section-hdr"><h2>Identity Risk Register</h2></div>', unsafe_allow_html=True)
 
-col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
+col_f1, col_f2, col_f3, col_f4 = st.columns([1, 1, 1, 2])
 with col_f1:
     selected_level = st.selectbox("Risk Level", ['All', 'Critical', 'High', 'Medium', 'Low'])
 with col_f2:
     departments = ['All'] + sorted(risk_df['department'].dropna().unique().tolist())
     selected_dept = st.selectbox("Department", departments)
 with col_f3:
+    id_types = ['All'] + sorted(risk_df['type'].dropna().unique().tolist())
+    selected_type = st.selectbox("Identity Type", id_types)
+with col_f4:
     search_name = st.text_input("🔍 Search by name or ID", placeholder="Type a name, ID or department…")
 
 filtered_df = risk_df.copy()
@@ -231,6 +235,8 @@ if selected_level != 'All':
     filtered_df = filtered_df[filtered_df['risk_level'] == selected_level]
 if selected_dept != 'All':
     filtered_df = filtered_df[filtered_df['department'] == selected_dept]
+if selected_type != 'All':
+    filtered_df = filtered_df[filtered_df['type'] == selected_type]
 if search_name:
     filtered_df = filtered_df[
         filtered_df['name'].str.contains(search_name, case=False, na=False) |
