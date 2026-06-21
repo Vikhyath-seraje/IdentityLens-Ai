@@ -7,34 +7,11 @@ from backend.identity_resolver import IdentityResolver
 from backend.risk_engine import RiskEngine
 from backend.anomaly_detection import AnomalyDetectionEngine
 
-# ── Patch st.plotly_chart to strip stray "undefined" titles ────────────────────
-# Plotly 6.x + Streamlit 1.58 can render an "undefined" label in the chart's
-# title area. We (1) force theme=None to disable Streamlit's plotly theming
-# layer (which injects the stray label) and (2) clear any figure title that
-# resolved to None/undefined before rendering.
-#
-# IMPORTANT: This script re-executes top-to-bottom on every Streamlit rerun.
-# We capture the REAL st.plotly_chart exactly once (guarded) and stash it on
-# the st module itself. The wrapper reads it from there at CALL time, so even
-# though _safe_plotly_chart is redefined each rerun, it always delegates to the
-# genuine original — never to itself. This makes infinite recursion impossible.
-if not hasattr(st, "_il_original_plotly_chart"):
-    st._il_original_plotly_chart = st.plotly_chart
-
-def _safe_plotly_chart(figure_or_data, *args, **kwargs):
-    try:
-        fig = figure_or_data
-        if hasattr(fig, "layout") and hasattr(fig.layout, "title"):
-            if getattr(fig.layout.title, "text", None) is None:
-                fig.update_layout(title=None)
-    except Exception:
-        pass
-    # Disable Streamlit's plotly theme injection unless caller set it explicitly
-    kwargs.setdefault("theme", None)
-    # Delegate to the genuine original, read fresh from the module at call time
-    return st._il_original_plotly_chart(figure_or_data, *args, **kwargs)
-
-st.plotly_chart = _safe_plotly_chart
+# Note: A previous version monkey-patched st.plotly_chart here to strip stray
+# "undefined" chart titles. That patch caused RecursionError on Streamlit Cloud
+# (st.plotly_chart is a bound method on PlotlyMixin, and reassigning it across
+# Streamlit reruns recursed infinitely, breaking EVERY chart). Removed because
+# the cosmetic benefit was not worth breaking all visualizations.
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
