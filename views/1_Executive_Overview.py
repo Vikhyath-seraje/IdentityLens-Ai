@@ -177,11 +177,31 @@ summary = load_summary_data()
 risk_df = load_risk_data()
 aws_df, ad_df, okta_df, active_tokens = load_platform_stats()
 
-critical_count = len(risk_df[risk_df['risk_level'] == 'Critical'])
-high_count     = len(risk_df[risk_df['risk_level'] == 'High'])
-total_ids      = summary['total_identities']
-correlated     = summary['has_all_three_platforms']
-avg_risk       = round(risk_df['risk_score'].mean(), 1)
+# ── Defensive: guard every column access so a schema/merge drift ──────────────
+# never crashes the whole page. Logs the exact exception to stderr and falls
+# back to safe defaults (counts → 0, scores → 0, missing type → 'Employee').
+import logging
+_log = logging.getLogger("views.exec_overview")
+
+def _safe_col_count(df, col, value):
+    """Count rows where df[col] == value, returning 0 if col/value missing."""
+    try:
+        if col not in df.columns or df.empty:
+            return 0
+        return int((df[col] == value).sum())
+    except Exception as e:
+        _log.exception("safe_col_count failed col=%s value=%s: %s", col, value, e)
+        return 0
+
+critical_count = _safe_col_count(risk_df, 'risk_level', 'Critical')
+high_count     = _safe_col_count(risk_df, 'risk_level', 'High')
+total_ids      = summary.get('total_identities', 0)
+correlated     = summary.get('has_all_three_platforms', 0)
+try:
+    avg_risk = round(float(risk_df['risk_score'].mean()), 1) if 'risk_score' in risk_df.columns and not risk_df.empty else 0.0
+except Exception as e:
+    _log.exception("avg_risk calc failed: %s", e)
+    avg_risk = 0.0
 
 try:
     quarantined_count = 0
@@ -337,41 +357,68 @@ col_c1, col_c2 = st.columns(2)
 
 with col_c1:
     st.markdown('<div class="chart-wrapper"><div class="chart-hdr">Identity Type Distribution</div>', unsafe_allow_html=True)
-    type_df = pd.DataFrame(list(summary['types'].items()), columns=['Type', 'Count'])
-    type_df = type_df.sort_values('Count', ascending=False)
-    PALETTE = ['#3B82F6', '#8B5CF6', '#22C55E', '#F97316', '#EAB308', '#06B6D4']
-    fig_types = px.pie(type_df, values='Count', names='Type', hole=0.58,
-                       color_discrete_sequence=PALETTE)
-    fig_types.update_layout(**DARK_LAYOUT,
-        legend=dict(font=dict(color=TEXT_COLOR, size=11), bgcolor='rgba(0,0,0,0)',
-                    orientation='v', yanchor='middle', y=0.5, xanchor='left', x=1.02),
-        margin=dict(t=10, b=10, l=10, r=80), height=280,
-        annotations=[dict(text=f"<b style='color:#F1F5F9'>{total_ids}</b><br><span style='font-size:9px;color:#64748B'>Total</span>",
-                          x=0.5, y=0.5, font_size=18, showarrow=False, font_color='#F1F5F9')])
-    fig_types.update_traces(textinfo='percent', textfont=dict(size=11, color='white'),
-        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Share: %{percent}<extra></extra>',
-        marker=dict(line=dict(color=DARK_BG, width=2)))
-    st.plotly_chart(fig_types, width="stretch")
+    try:
+        # Build the type breakdown defensively. If summary['types'] is missing
+        # or empty, we cannot render a pie — show a warning instead of crashing.
+        type_dict = summary.get('types') or {}
+        if not type_dict:
+            st.warning("⚠️ No identity-type data available — the `types` summary is empty. "
+                       "Check that the identities table is populated.")
+        else:
+            type_df = pd.DataFrame(list(type_dict.items()), columns=['Type', 'Count'])
+            # Missing/blank types default to 'Employee' so the pie always has a label.
+            type_df['Type'] = type_df['Type'].fillna('Employee').replace({'': 'Employee', 'nan': 'Employee'})
+            type_df['Count'] = pd.to_numeric(type_df['Count'], errors='coerce').fillna(0).astype(int)
+            type_df = type_df[type_df['Count'] > 0].sort_values('Count', ascending=False)
+            if type_df.empty:
+                st.warning("⚠️ Identity-type data has no rows with a positive count.")
+            else:
+                PALETTE = ['#3B82F6', '#8B5CF6', '#22C55E', '#F97316', '#EAB308', '#06B6D4']
+                fig_types = px.pie(type_df, values='Count', names='Type', hole=0.58,
+                                   color_discrete_sequence=PALETTE)
+                fig_types.update_layout(**DARK_LAYOUT,
+                    legend=dict(font=dict(color=TEXT_COLOR, size=11), bgcolor='rgba(0,0,0,0)',
+                                orientation='v', yanchor='middle', y=0.5, xanchor='left', x=1.02),
+                    margin=dict(t=10, b=10, l=10, r=80), height=280,
+                    annotations=[dict(text=f"<b style='color:#F1F5F9'>{total_ids}</b><br><span style='font-size:9px;color:#64748B'>Total</span>",
+                                      x=0.5, y=0.5, font_size=18, showarrow=False, font_color='#F1F5F9')])
+                fig_types.update_traces(textinfo='percent', textfont=dict(size=11, color='white'),
+                    hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Share: %{percent}<extra></extra>',
+                    marker=dict(line=dict(color=DARK_BG, width=2)))
+                if fig_types is None:
+                    st.warning("⚠️ Chart generation returned no figure for identity types.")
+                else:
+                    st.plotly_chart(fig_types, width="stretch")
+    except Exception as e:
+        _log.exception("Identity Type Distribution chart failed: %s", e)
+        st.warning(f"⚠️ Could not render Identity Type Distribution: `{type(e).__name__}: {e}`")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_c2:
     st.markdown('<div class="chart-wrapper"><div class="chart-hdr">Risk Level Distribution</div>', unsafe_allow_html=True)
-    risk_counts = risk_df['risk_level'].value_counts().reset_index()
-    risk_counts.columns = ['Risk Level', 'Count']
-    order = ['Critical', 'High', 'Medium', 'Low']
-    risk_counts['Risk Level'] = pd.Categorical(risk_counts['Risk Level'], categories=order, ordered=True)
-    risk_counts = risk_counts.sort_values('Risk Level')
-    fig_risk = px.bar(risk_counts, x='Risk Level', y='Count', color='Risk Level',
-                      color_discrete_map=COLOR_MAP, text='Count')
-    fig_risk.update_layout(**DARK_LAYOUT, showlegend=False,
-        xaxis=dict(gridcolor=GRID_COLOR, title='', tickfont=dict(size=12, color=TEXT_COLOR)),
-        yaxis=dict(gridcolor=GRID_COLOR, title='Count', tickfont=dict(size=11, color=TEXT_COLOR)),
-        margin=dict(t=10, b=20, l=10, r=10), height=280, bargap=0.35)
-    fig_risk.update_traces(textposition='outside',
-        textfont=dict(color='#F1F5F9', size=13, weight=700),
-        marker_line_color='rgba(0,0,0,0)', marker_opacity=0.9,
-        hovertemplate='<b>%{x}</b><br>%{y} identities<extra></extra>')
-    st.plotly_chart(fig_risk, width="stretch")
+    try:
+        if 'risk_level' not in risk_df.columns or risk_df.empty:
+            st.warning("⚠️ No risk-level data available to chart.")
+        else:
+            risk_counts = risk_df['risk_level'].value_counts().reset_index()
+            risk_counts.columns = ['Risk Level', 'Count']
+            order = ['Critical', 'High', 'Medium', 'Low']
+            risk_counts['Risk Level'] = pd.Categorical(risk_counts['Risk Level'], categories=order, ordered=True)
+            risk_counts = risk_counts.sort_values('Risk Level')
+            fig_risk = px.bar(risk_counts, x='Risk Level', y='Count', color='Risk Level',
+                              color_discrete_map=COLOR_MAP, text='Count')
+            fig_risk.update_layout(**DARK_LAYOUT, showlegend=False,
+                xaxis=dict(gridcolor=GRID_COLOR, title='', tickfont=dict(size=12, color=TEXT_COLOR)),
+                yaxis=dict(gridcolor=GRID_COLOR, title='Count', tickfont=dict(size=11, color=TEXT_COLOR)),
+                margin=dict(t=10, b=20, l=10, r=10), height=280, bargap=0.35)
+            fig_risk.update_traces(textposition='outside',
+                textfont=dict(color='#F1F5F9', size=13, weight=700),
+                marker_line_color='rgba(0,0,0,0)', marker_opacity=0.9,
+                hovertemplate='<b>%{x}</b><br>%{y} identities<extra></extra>')
+            st.plotly_chart(fig_risk, width="stretch")
+    except Exception as e:
+        _log.exception("Risk Level Distribution chart failed: %s", e)
+        st.warning(f"⚠️ Could not render Risk Level Distribution: `{type(e).__name__}: {e}`")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Risk Heatmap ───────────────────────────────────────────────────────────────
@@ -651,26 +698,32 @@ with col_p3:
 st.markdown('<div class="section-hdr"><h2>Risk × Department Breakdown</h2></div>', unsafe_allow_html=True)
 st.markdown('<div class="chart-wrapper"><div class="chart-hdr">Sunburst — hover to explore departments and risk levels</div>', unsafe_allow_html=True)
 
-if 'department' in risk_df.columns and risk_df['department'].notna().any():
-    dept_risk_df = risk_df.dropna(subset=['department'])
-    fig_sun = px.sunburst(dept_risk_df, path=['risk_level', 'department'],
-        color='risk_level', color_discrete_map=COLOR_MAP)
-    fig_sun.update_layout(paper_bgcolor=DARK_BG, font=dict(family=FONT_FAM, color=TEXT_COLOR),
-        height=400, margin=dict(t=10, b=10, l=10, r=10))
-    fig_sun.update_traces(
-        hovertemplate='<b>%{label}</b><br>Count: %{value}<extra></extra>',
-        insidetextorientation='radial',
-        textfont=dict(color='white', size=11)
-    )
-    st.plotly_chart(fig_sun, width="stretch")
-else:
-    # Fallback bar chart
-    fallback_df = risk_df.groupby('risk_level').size().reset_index(name='count')
-    fig_fb = px.bar(fallback_df, x='risk_level', y='count', color='risk_level',
-                    color_discrete_map=COLOR_MAP, text='count')
-    fig_fb.update_layout(**DARK_LAYOUT, showlegend=False, height=350,
-        margin=dict(t=10, b=20, l=10, r=10))
-    st.plotly_chart(fig_fb, width="stretch")
+try:
+    if 'department' in risk_df.columns and risk_df['department'].notna().any():
+        dept_risk_df = risk_df.dropna(subset=['department'])
+        fig_sun = px.sunburst(dept_risk_df, path=['risk_level', 'department'],
+            color='risk_level', color_discrete_map=COLOR_MAP)
+        fig_sun.update_layout(paper_bgcolor=DARK_BG, font=dict(family=FONT_FAM, color=TEXT_COLOR),
+            height=400, margin=dict(t=10, b=10, l=10, r=10))
+        fig_sun.update_traces(
+            hovertemplate='<b>%{label}</b><br>Count: %{value}<extra></extra>',
+            insidetextorientation='radial',
+            textfont=dict(color='white', size=11)
+        )
+        st.plotly_chart(fig_sun, width="stretch")
+    elif 'risk_level' in risk_df.columns and not risk_df.empty:
+        # Fallback bar chart
+        fallback_df = risk_df.groupby('risk_level').size().reset_index(name='count')
+        fig_fb = px.bar(fallback_df, x='risk_level', y='count', color='risk_level',
+                        color_discrete_map=COLOR_MAP, text='count')
+        fig_fb.update_layout(**DARK_LAYOUT, showlegend=False, height=350,
+            margin=dict(t=10, b=20, l=10, r=10))
+        st.plotly_chart(fig_fb, width="stretch")
+    else:
+        st.info("No department or risk-level data available for breakdown.")
+except Exception as e:
+    _log.exception("Risk × Department Breakdown chart failed: %s", e)
+    st.warning(f"⚠️ Could not render Risk × Department Breakdown: `{type(e).__name__}: {e}`")
 
 st.markdown('</div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)

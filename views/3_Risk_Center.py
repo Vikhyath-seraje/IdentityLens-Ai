@@ -127,11 +127,29 @@ def load_risk_data():
 
 risk_df = load_risk_data()
 
-critical = len(risk_df[risk_df['risk_level'] == 'Critical'])
-high     = len(risk_df[risk_df['risk_level'] == 'High'])
-medium   = len(risk_df[risk_df['risk_level'] == 'Medium'])
-low      = len(risk_df[risk_df['risk_level'] == 'Low'])
-avg_risk = round(risk_df['risk_score'].mean(), 1)
+# ── Defensive: guard every column access. A schema/merge drift must never ─────
+# crash the whole page — default to 0 and log the exact exception.
+import logging
+_log = logging.getLogger("views.risk_center")
+
+def _safe_count(df, col, value):
+    try:
+        if col not in df.columns or df.empty:
+            return 0
+        return int((df[col] == value).sum())
+    except Exception as e:
+        _log.exception("safe_count failed col=%s value=%s: %s", col, value, e)
+        return 0
+
+critical = _safe_count(risk_df, 'risk_level', 'Critical')
+high     = _safe_count(risk_df, 'risk_level', 'High')
+medium   = _safe_count(risk_df, 'risk_level', 'Medium')
+low      = _safe_count(risk_df, 'risk_level', 'Low')
+try:
+    avg_risk = round(float(risk_df['risk_score'].mean()), 1) if 'risk_score' in risk_df.columns and not risk_df.empty else 0.0
+except Exception as e:
+    _log.exception("avg_risk calc failed: %s", e)
+    avg_risk = 0.0
 
 # ── KPI Row ────────────────────────────────────────────────────────────────────
 col1, col2, col3, col4, col5 = st.columns(5)
@@ -222,31 +240,34 @@ col_f1, col_f2, col_f3, col_f4 = st.columns([1, 1, 1, 2])
 with col_f1:
     selected_level = st.selectbox("Risk Level", ['All', 'Critical', 'High', 'Medium', 'Low'])
 with col_f2:
-    departments = ['All'] + sorted(risk_df['department'].dropna().unique().tolist())
+    _dept_vals = sorted(risk_df['department'].dropna().unique().tolist()) if 'department' in risk_df.columns else []
+    departments = ['All'] + _dept_vals
     selected_dept = st.selectbox("Department", departments)
 with col_f3:
-    id_types = ['All'] + sorted(risk_df['type'].dropna().unique().tolist())
+    _type_vals = sorted(risk_df['type'].dropna().unique().tolist()) if 'type' in risk_df.columns else []
+    id_types = ['All'] + _type_vals
     selected_type = st.selectbox("Identity Type", id_types)
 with col_f4:
     search_name = st.text_input("🔍 Search by name or ID", placeholder="Type a name, ID or department…")
 
 filtered_df = risk_df.copy()
-if selected_level != 'All':
+if selected_level != 'All' and 'risk_level' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['risk_level'] == selected_level]
-if selected_dept != 'All':
+if selected_dept != 'All' and 'department' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['department'] == selected_dept]
-if selected_type != 'All':
+if selected_type != 'All' and 'type' in filtered_df.columns:
     filtered_df = filtered_df[filtered_df['type'] == selected_type]
 if search_name:
-    filtered_df = filtered_df[
-        filtered_df['name'].str.contains(search_name, case=False, na=False) |
-        filtered_df['identity_id'].str.contains(search_name, case=False, na=False)
-    ]
+    _by_name = filtered_df['name'].str.contains(search_name, case=False, na=False) if 'name' in filtered_df.columns else False
+    _by_id   = filtered_df['identity_id'].str.contains(search_name, case=False, na=False) if 'identity_id' in filtered_df.columns else False
+    filtered_df = filtered_df[_by_name | _by_id]
 
 st.caption(f"Showing **{len(filtered_df)}** of **{len(risk_df)}** identities · sorted by highest risk first")
+# Only show columns that actually exist so a missing column never crashes the table.
+_table_cols = [c for c in ['identity_id', 'name', 'department', 'type', 'risk_score',
+                           'risk_level', 'anomaly_count', 'privilege_count'] if c in filtered_df.columns]
 st.dataframe(
-    filtered_df[['identity_id', 'name', 'department', 'type', 'risk_score', 'risk_level', 'anomaly_count', 'privilege_count']]
-        .sort_values(by='risk_score', ascending=False),
+    filtered_df[_table_cols].sort_values(by='risk_score', ascending=False) if 'risk_score' in _table_cols else filtered_df[_table_cols],
     width="stretch", height=320,
     column_config={
         'identity_id':     st.column_config.TextColumn('Identity ID',   width='small'),
@@ -257,7 +278,7 @@ st.dataframe(
         'risk_level':      st.column_config.TextColumn('Level',         width='small'),
         'anomaly_count':   st.column_config.NumberColumn('Anomalies',   width='small'),
         'privilege_count': st.column_config.NumberColumn('Privileges',  width='small'),
-    }
+    } if _table_cols else None
 )
 
 st.divider()
@@ -269,62 +290,86 @@ col_c1, col_c2 = st.columns(2)
 
 with col_c1:
     st.markdown('<div class="chart-wrapper"><div class="chart-hdr">Risk Score Distribution</div>', unsafe_allow_html=True)
-    fig_hist = px.histogram(risk_df, x="risk_score", color="risk_level", nbins=25,
-                             color_discrete_map=COLOR_MAP, opacity=0.85,
-                             labels={'risk_score': 'Risk Score', 'count': 'Identities'})
-    fig_hist.update_layout(**DARK_LAYOUT,
-        legend=dict(font=dict(color=TEXT_COL, size=10), bgcolor='rgba(0,0,0,0)',
-                    orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
-        xaxis=dict(gridcolor=GRID_COL, title='Risk Score', tickfont=dict(size=11, color=TEXT_COL)),
-        yaxis=dict(gridcolor=GRID_COL, title='Identities', tickfont=dict(size=11, color=TEXT_COL)),
-        margin=dict(t=30, b=20, l=10, r=10), bargap=0.03, height=280)
-    fig_hist.update_traces(
-        hovertemplate='Score: <b>%{x}</b><br>Count: <b>%{y}</b><extra></extra>',
-        marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5)
-    st.plotly_chart(fig_hist, width="stretch")
+    try:
+        if 'risk_score' not in risk_df.columns or risk_df.empty:
+            st.warning("⚠️ No risk-score data available to chart.")
+        else:
+            fig_hist = px.histogram(risk_df, x="risk_score", color="risk_level", nbins=25,
+                                     color_discrete_map=COLOR_MAP, opacity=0.85,
+                                     labels={'risk_score': 'Risk Score', 'count': 'Identities'})
+            fig_hist.update_layout(**DARK_LAYOUT,
+                legend=dict(font=dict(color=TEXT_COL, size=10), bgcolor='rgba(0,0,0,0)',
+                            orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                xaxis=dict(gridcolor=GRID_COL, title='Risk Score', tickfont=dict(size=11, color=TEXT_COL)),
+                yaxis=dict(gridcolor=GRID_COL, title='Identities', tickfont=dict(size=11, color=TEXT_COL)),
+                margin=dict(t=30, b=20, l=10, r=10), bargap=0.03, height=280)
+            fig_hist.update_traces(
+                hovertemplate='Score: <b>%{x}</b><br>Count: <b>%{y}</b><extra></extra>',
+                marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5)
+            st.plotly_chart(fig_hist, width="stretch")
+    except Exception as e:
+        _log.exception("Risk Score Distribution chart failed: %s", e)
+        st.warning(f"⚠️ Could not render Risk Score Distribution: `{type(e).__name__}: {e}`")
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col_c2:
     st.markdown('<div class="chart-wrapper"><div class="chart-hdr">Average Risk by Department</div>', unsafe_allow_html=True)
-    dept_risk = risk_df.groupby('department')['risk_score'].mean().reset_index()
-    dept_risk = dept_risk.sort_values('risk_score', ascending=True)
-    dept_risk['color_cat'] = dept_risk['risk_score'].apply(
-        lambda s: 'Critical' if s >= 80 else 'High' if s >= 60 else 'Medium' if s >= 30 else 'Low'
-    )
-    fig_dept = px.bar(dept_risk, x='risk_score', y='department', orientation='h',
-                      color='color_cat', color_discrete_map=COLOR_MAP,
-                      text=dept_risk['risk_score'].round(1),
-                      labels={'risk_score': 'Avg Risk Score', 'department': ''})
-    fig_dept.update_layout(**DARK_LAYOUT, showlegend=False,
-        xaxis=dict(gridcolor=GRID_COL, title='Avg Risk Score', range=[0, 110],
-                   tickfont=dict(size=11, color=TEXT_COL)),
-        yaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(size=11, color='#F1F5F9')),
-        margin=dict(t=10, b=20, l=10, r=40), height=280, bargap=0.3)
-    fig_dept.update_traces(textposition='outside',
-        textfont=dict(color='#F1F5F9', size=11, weight=600),
-        hovertemplate='<b>%{y}</b><br>Avg Risk: <b>%{x:.1f}</b><extra></extra>',
-        marker_line_color='rgba(0,0,0,0)')
-    st.plotly_chart(fig_dept, width="stretch")
+    try:
+        if 'department' not in risk_df.columns or 'risk_score' not in risk_df.columns or risk_df.empty:
+            st.warning("⚠️ No department/risk data available to chart.")
+        else:
+            dept_risk = risk_df.dropna(subset=['department']).groupby('department')['risk_score'].mean().reset_index()
+            dept_risk = dept_risk.sort_values('risk_score', ascending=True)
+            dept_risk['color_cat'] = dept_risk['risk_score'].apply(
+                lambda s: 'Critical' if s >= 80 else 'High' if s >= 60 else 'Medium' if s >= 30 else 'Low'
+            )
+            if dept_risk.empty:
+                st.info("No department breakdown available.")
+            else:
+                fig_dept = px.bar(dept_risk, x='risk_score', y='department', orientation='h',
+                                  color='color_cat', color_discrete_map=COLOR_MAP,
+                                  text=dept_risk['risk_score'].round(1),
+                                  labels={'risk_score': 'Avg Risk Score', 'department': ''})
+                fig_dept.update_layout(**DARK_LAYOUT, showlegend=False,
+                    xaxis=dict(gridcolor=GRID_COL, title='Avg Risk Score', range=[0, 110],
+                               tickfont=dict(size=11, color=TEXT_COL)),
+                    yaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(size=11, color='#F1F5F9')),
+                    margin=dict(t=10, b=20, l=10, r=40), height=280, bargap=0.3)
+                fig_dept.update_traces(textposition='outside',
+                    textfont=dict(color='#F1F5F9', size=11, weight=600),
+                    hovertemplate='<b>%{y}</b><br>Avg Risk: <b>%{x:.1f}</b><extra></extra>',
+                    marker_line_color='rgba(0,0,0,0)')
+                st.plotly_chart(fig_dept, width="stretch")
+    except Exception as e:
+        _log.exception("Average Risk by Department chart failed: %s", e)
+        st.warning(f"⚠️ Could not render Average Risk by Department: `{type(e).__name__}: {e}`")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Risk by Type ───────────────────────────────────────────────────────────────
 if 'type' in risk_df.columns:
     st.markdown('<div class="section-hdr"><h2>Risk Profile by Identity Type</h2></div>', unsafe_allow_html=True)
     st.markdown('<div class="chart-wrapper"><div class="chart-hdr">Which identity types carry the most risk?</div>', unsafe_allow_html=True)
-    type_risk = risk_df.groupby(['type', 'risk_level']).size().reset_index(name='count')
-    fig_type = px.bar(type_risk, x='type', y='count', color='risk_level',
-                      color_discrete_map=COLOR_MAP, barmode='stack',
-                      labels={'type': 'Identity Type', 'count': 'Count', 'risk_level': 'Risk Level'})
-    fig_type.update_layout(**DARK_LAYOUT,
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1,
-                    font=dict(size=10, color=TEXT_COL), bgcolor='rgba(0,0,0,0)'),
-        xaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(size=12, color='#F1F5F9')),
-        yaxis=dict(gridcolor=GRID_COL, tickfont=dict(size=11, color=TEXT_COL)),
-        bargap=0.35, height=260, margin=dict(t=30, b=20))
-    fig_type.update_traces(
-        hovertemplate='<b>%{x}</b> — %{data.name}<br>Count: <b>%{y}</b><extra></extra>',
-        marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5)
-    st.plotly_chart(fig_type, width="stretch")
+    try:
+        type_risk = risk_df.dropna(subset=['type']).groupby(['type', 'risk_level']).size().reset_index(name='count')
+        if type_risk.empty:
+            st.info("No identity-type breakdown available.")
+        else:
+            fig_type = px.bar(type_risk, x='type', y='count', color='risk_level',
+                              color_discrete_map=COLOR_MAP, barmode='stack',
+                              labels={'type': 'Identity Type', 'count': 'Count', 'risk_level': 'Risk Level'})
+            fig_type.update_layout(**DARK_LAYOUT,
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1,
+                            font=dict(size=10, color=TEXT_COL), bgcolor='rgba(0,0,0,0)'),
+                xaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(size=12, color='#F1F5F9')),
+                yaxis=dict(gridcolor=GRID_COL, tickfont=dict(size=11, color=TEXT_COL)),
+                bargap=0.35, height=260, margin=dict(t=30, b=20))
+            fig_type.update_traces(
+                hovertemplate='<b>%{x}</b> — %{data.name}<br>Count: <b>%{y}</b><extra></extra>',
+                marker_line_color='rgba(255,255,255,0.1)', marker_line_width=0.5)
+            st.plotly_chart(fig_type, width="stretch")
+    except Exception as e:
+        _log.exception("Risk Profile by Identity Type chart failed: %s", e)
+        st.warning(f"⚠️ Could not render Risk Profile by Identity Type: `{type(e).__name__}: {e}`")
     st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
