@@ -12,21 +12,28 @@ from backend.anomaly_detection import AnomalyDetectionEngine
 # title area. We (1) force theme=None to disable Streamlit's plotly theming
 # layer (which injects the stray label) and (2) clear any figure title that
 # resolved to None/undefined before rendering.
-_original_plotly_chart = st.plotly_chart
+#
+# IMPORTANT: This script re-executes top-to-bottom on every Streamlit rerun.
+# We must NOT re-patch on subsequent runs — otherwise _original_plotly_chart
+# captures the wrapper itself and _safe_plotly_chart calls itself forever
+# (RecursionError). The sentinel attribute makes the patch idempotent.
+if not getattr(st.plotly_chart, "_il_safe_patched", False):
+    _original_plotly_chart = st.plotly_chart
 
-def _safe_plotly_chart(figure_or_data, *args, **kwargs):
-    try:
-        fig = figure_or_data
-        if hasattr(fig, "layout") and hasattr(fig.layout, "title"):
-            if getattr(fig.layout.title, "text", None) is None:
-                fig.update_layout(title=None)
-    except Exception:
-        pass
-    # Disable Streamlit's plotly theme injection unless caller set it explicitly
-    kwargs.setdefault("theme", None)
-    return _original_plotly_chart(figure_or_data, *args, **kwargs)
+    def _safe_plotly_chart(figure_or_data, *args, **kwargs):
+        try:
+            fig = figure_or_data
+            if hasattr(fig, "layout") and hasattr(fig.layout, "title"):
+                if getattr(fig.layout.title, "text", None) is None:
+                    fig.update_layout(title=None)
+        except Exception:
+            pass
+        # Disable Streamlit's plotly theme injection unless caller set it explicitly
+        kwargs.setdefault("theme", None)
+        return _original_plotly_chart(figure_or_data, *args, **kwargs)
 
-st.plotly_chart = _safe_plotly_chart
+    _safe_plotly_chart._il_safe_patched = True
+    st.plotly_chart = _safe_plotly_chart
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
