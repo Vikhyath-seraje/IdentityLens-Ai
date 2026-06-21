@@ -115,7 +115,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── Data Loader ────────────────────────────────────────────────────────────────
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=120)
 def load_quarantine_data():
     conn = sqlite3.connect(DB_PATH)
     identities_df = IdentityResolver().get_resolved_identities()
@@ -164,6 +164,28 @@ def load_quarantine_data():
 
     conn.close()
     return merged_df, remediation, audit_df
+
+@st.cache_data(ttl=120)
+def _check_quarantine_rules_cached(identity_id: str) -> dict:
+    """Cached wrapper around check_quarantine_rules to avoid re-running
+    RiskEngine + AnomalyDetectionEngine on every Streamlit rerun."""
+    return check_quarantine_rules(identity_id)
+
+
+@st.cache_data(ttl=120)
+def _load_platform_status(identity_id: str) -> dict:
+    """Batch-load AD, AWS, Okta, and token-count for a single identity.
+    Cached so switching between identities doesn't hit the DB each time."""
+    conn = sqlite3.connect(DB_PATH)
+    try:
+        ad   = conn.execute("SELECT status, role   FROM ad_accounts   WHERE identity_id = ?", (identity_id,)).fetchone()
+        aws  = conn.execute("SELECT status, policy FROM aws_accounts  WHERE identity_id = ?", (identity_id,)).fetchone()
+        okta = conn.execute("SELECT status, role   FROM okta_accounts WHERE identity_id = ?", (identity_id,)).fetchone()
+        tok  = conn.execute("SELECT COUNT(*)       FROM api_tokens    WHERE identity_id = ?", (identity_id,)).fetchone()[0]
+    finally:
+        conn.close()
+    return {'ad': ad, 'aws': aws, 'okta': okta, 'token_count': tok}
+
 
 merged_df, remediation, audit_df = load_quarantine_data()
 
@@ -263,7 +285,7 @@ else:
 
     if selected_id:
         user_row     = merged_df[merged_df['identity_id'] == selected_id].iloc[0]
-        policy_check = check_quarantine_rules(selected_id)
+        policy_check = _check_quarantine_rules_cached(selected_id)
         remed        = remediation.get(selected_id, {})
         is_quarantined = user_row['status'] == 'quarantined'
 
@@ -304,13 +326,12 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-            # Platform status
-            conn = sqlite3.connect(DB_PATH)
-            ad_acc   = conn.execute("SELECT status, role   FROM ad_accounts   WHERE identity_id = ?", (selected_id,)).fetchone()
-            aws_acc  = conn.execute("SELECT status, policy FROM aws_accounts  WHERE identity_id = ?", (selected_id,)).fetchone()
-            okta_acc = conn.execute("SELECT status, role   FROM okta_accounts WHERE identity_id = ?", (selected_id,)).fetchone()
-            token_count = conn.execute("SELECT COUNT(*) FROM api_tokens WHERE identity_id = ?", (selected_id,)).fetchone()[0]
-            conn.close()
+            # Platform status (cached)
+            plat = _load_platform_status(selected_id)
+            ad_acc      = plat['ad']
+            aws_acc     = plat['aws']
+            okta_acc    = plat['okta']
+            token_count = plat['token_count']
 
             st.markdown('<div style="font-size:0.78rem;font-weight:700;color:#F1F5F9;margin:1.2rem 0 0.6rem;">Platform Connection Status</div>', unsafe_allow_html=True)
             col_ad, col_aws, col_okta = st.columns(3)

@@ -74,6 +74,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Helper to load all necessary data
+@st.cache_data(ttl=120)
 def load_quarantine_data():
     conn = sqlite3.connect(DB_PATH)
     
@@ -124,13 +125,18 @@ def load_quarantine_data():
 
 merged_df, audit_df = load_quarantine_data()
 
+@st.cache_data(ttl=120)
+def _check_quarantine_rules_cached(identity_id: str) -> dict:
+    """Cached wrapper to avoid re-running RiskEngine + AnomalyDetection on every rerun."""
+    return check_quarantine_rules(identity_id)
+
 # ── KPI Cards ─────────────────────────────────────────────────────────
 kpi1, kpi2, kpi3, kpi4 = st.columns(4)
 
 total_identities = len(merged_df)
 quarantined_count = len(merged_df[merged_df['status'] == 'quarantined'])
 critical_count = len(merged_df[merged_df['risk_level'] == 'Critical'])
-eligible_count = sum(merged_df['identity_id'].map(lambda x: check_quarantine_rules(x)['eligible']))
+eligible_count = sum(merged_df['identity_id'].map(lambda x: _check_quarantine_rules_cached(x)['eligible']))
 
 kpi1.metric("Total Monitored", total_identities)
 kpi2.metric("Quarantined", quarantined_count)
@@ -176,7 +182,7 @@ if selected_id:
     user_row = merged_df[merged_df['identity_id'] == selected_id].iloc[0]
     
     # Check policy eligibility rules
-    policy_check = check_quarantine_rules(selected_id)
+    policy_check = _check_quarantine_rules_cached(selected_id)
     
     col_details, col_actions = st.columns([2, 1])
     
