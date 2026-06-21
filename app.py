@@ -14,26 +14,27 @@ from backend.anomaly_detection import AnomalyDetectionEngine
 # resolved to None/undefined before rendering.
 #
 # IMPORTANT: This script re-executes top-to-bottom on every Streamlit rerun.
-# We must NOT re-patch on subsequent runs — otherwise _original_plotly_chart
-# captures the wrapper itself and _safe_plotly_chart calls itself forever
-# (RecursionError). The sentinel attribute makes the patch idempotent.
-if not getattr(st.plotly_chart, "_il_safe_patched", False):
-    _original_plotly_chart = st.plotly_chart
+# We capture the REAL st.plotly_chart exactly once (guarded) and stash it on
+# the st module itself. The wrapper reads it from there at CALL time, so even
+# though _safe_plotly_chart is redefined each rerun, it always delegates to the
+# genuine original — never to itself. This makes infinite recursion impossible.
+if not hasattr(st, "_il_original_plotly_chart"):
+    st._il_original_plotly_chart = st.plotly_chart
 
-    def _safe_plotly_chart(figure_or_data, *args, **kwargs):
-        try:
-            fig = figure_or_data
-            if hasattr(fig, "layout") and hasattr(fig.layout, "title"):
-                if getattr(fig.layout.title, "text", None) is None:
-                    fig.update_layout(title=None)
-        except Exception:
-            pass
-        # Disable Streamlit's plotly theme injection unless caller set it explicitly
-        kwargs.setdefault("theme", None)
-        return _original_plotly_chart(figure_or_data, *args, **kwargs)
+def _safe_plotly_chart(figure_or_data, *args, **kwargs):
+    try:
+        fig = figure_or_data
+        if hasattr(fig, "layout") and hasattr(fig.layout, "title"):
+            if getattr(fig.layout.title, "text", None) is None:
+                fig.update_layout(title=None)
+    except Exception:
+        pass
+    # Disable Streamlit's plotly theme injection unless caller set it explicitly
+    kwargs.setdefault("theme", None)
+    # Delegate to the genuine original, read fresh from the module at call time
+    return st._il_original_plotly_chart(figure_or_data, *args, **kwargs)
 
-    _safe_plotly_chart._il_safe_patched = True
-    st.plotly_chart = _safe_plotly_chart
+st.plotly_chart = _safe_plotly_chart
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
